@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ปฏิทินกิจกรรมนักศึกษา 2569 | คณะวิทยาศาสตร์และเทคโนโลยี</title>
+    <meta name="description"
+        content="ปฏิทินกิจกรรมนักศึกษา คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร ปีการศึกษา 2569">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=1.1">
+    <link rel="stylesheet" href="chatbot.css">
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="theme-loader.js"></script>
+    <script src="ui-shared.js"></script>
+    <link rel="stylesheet" href="/static/css/ux-foundation.css?v=1">
+</head>
+
+<body>
+
+    <!-- ===== TOP NAVIGATION ===== -->
+    <nav class="top-nav" id="top-nav">
+        <div class="nav-inner">
+            <!-- Brand -->
+            <a class="nav-brand" href="/">
+                <div class="nav-logo"><img src="static/img/scitech_logo.png" alt="SciTech Logo"></div>
+                <div class="nav-brand-text">
+                    <span class="nav-title">ปฏิทินกิจกรรม</span>
+                    <span class="nav-sub">คณะวิทยาศาสตร์และเทคโนโลยี มรสน.</span>
+                </div>
+            </a>
+
+            <div class="nav-right" id="nav-right">
+                <button class="nav-btn nav-btn-ghost" onclick="toggleTheme()" title="เปลี่ยนธีม">
+                    <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
+                </button>
+                <button class="nav-btn nav-btn-ghost" id="nav-share-btn" onclick="shareWebsite()" title="แชร์เว็บไซต์">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
+                <button class="nav-btn nav-btn-amber" onclick="openPublicLeaderboard()">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>อันดับ</span>
+                </button>
+
+                <!-- Desktop Notification -->
+                <div class="notification-container desktop-only" id="notif-container-desktop" style="display: none !important;">
+                    <button class="nav-btn nav-btn-ghost" onclick="toggleNotifications(event)" title="การแจ้งเตือน">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="notif-badge" style="display: none;">0</span>
+                    </button>
+                    <!-- Desktop Dropdown -->
+                    <div class="notif-dropdown">
+                        <div class="notif-header">
+                            <h3><i class="fa-solid fa-bell" style="color:#0284c7;font-size:14px;"></i> การแจ้งเตือน</h3>
+                            <button onclick="markAllAsRead()"><i class="fa-solid fa-check-double"></i> อ่านทั้งหมด</button>
+                        </div>
+                        <div class="notif-list">
+                            <div class="notif-empty"><i class="fa-regular fa-bell-slash" style="font-size:28px;opacity:0.25;"></i>ไม่มีการแจ้งเตือน</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="user-controls"><!-- JS inject --></div>
+            </div>
+
+            <!-- Mobile Notification (Button only here, dropdown at root) -->
+            <div class="notification-container mobile-only" id="notif-container-mobile" style="display: none !important;">
+                <button class="nav-btn nav-btn-ghost" onclick="toggleNotifications(event)" title="การแจ้งเตือน">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notif-badge" style="display: none;">0</span>
+                </button>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Notification Backdrops & Mobile Dropdown (Moved to root for stacking context) -->
+    <div class="notif-backdrop" id="notif-backdrop" onclick="closeNotifications(event)" style="display: none !important;"></div>
+    
+    <div class="notif-dropdown mobile-only" id="notif-dropdown-mobile" style="display: none !important;">
+        <div class="notif-handle"></div>
+        <div class="notif-header">
+            <h3><i class="fa-solid fa-bell" style="color:#0284c7;font-size:14px;"></i> การแจ้งเตือน</h3>
+            <div style="display:flex; gap:12px; align-items:center;">
+                <button onclick="markAllAsRead()"><i class="fa-solid fa-check-double"></i> อ่านทั้งหมด</button>
+                <button class="notif-close-btn" onclick="closeNotifications(event)" title="ปิด">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        <div class="notif-list">
+            <div class="notif-empty"><i class="fa-regular fa-bell-slash" style="font-size:28px;opacity:0.25;"></i>ไม่มีการแจ้งเตือน</div>
+        </div>
+    </div>
+
+    <!-- ===== HERO HEADER ===== -->
+    <header class="page-hero">
+        <div class="hero-inner">
+            <!-- Left: Title + Ticker -->
+            <div class="hero-content">
+                <div class="hero-badge">ปีการศึกษา 2569</div>
+                <h1 class="hero-title">ปฏิทินกิจกรรม<br><span>นักศึกษา</span></h1>
+                <p class="hero-subtitle">
+                    <i class="fa-solid fa-location-dot"></i>
+                    คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร
+                </p>
+
+                <div class="ux-shortcuts" aria-label="ทางลัดกิจกรรม">
+                    <a href="#search-bar">ค้นหากิจกรรม</a>
+                    <a href="/profile">กิจกรรมของฉัน</a>
+                </div>
+                <!-- Ticker -->
+                <div id="leaderboard-ticker">
+                    <i class="fa-solid fa-fire-flame-curved ticker-icon"></i>
+                    <div id="ticker-content"></div>
+                </div>
+            </div>
+
+            <!-- Right: Carousel -->
+            <div class="carousel-container" id="carousel-container">
+                <div class="carousel-track" id="carousel-track">
+                    <!-- JS inject -->
+                </div>
+                <div class="carousel-dots" id="carousel-dots"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== SEARCH BAR ===== -->
+    <div class="search-bar" id="search-bar">
+        <div class="search-bar-inner">
+            <div class="search-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" class="search-input" placeholder="ค้นหาชื่อกิจกรรม..." oninput="onSearchInput(this)">
+                <button id="search-clear" class="search-clear" onclick="clearSearch()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="ux-quick-filters" aria-label="ตัวกรองด่วน">
+        <label><input type="checkbox" id="ux-open-only"> เปิดรับสมัคร</label>
+        <label><input type="checkbox" id="ux-today-only"> กิจกรรมวันนี้</label>
+        <button type="button" id="ux-reset-filters">ล้างตัวกรองทั้งหมด</button>
+    </div>
+    <!-- ===== FILTER BAR ===== -->
+    <div class="filter-bar" id="filter-bar">
+        <div class="filter-bar-inner">
+            <!-- Month filter -->
+            <div class="filter-group">
+                <span class="filter-group-label"><i class="fa-regular fa-calendar"></i> เดือน</span>
+                <div class="filter-scroll" id="month-filters">
+                    <!-- JS inject -->
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="filter-divider"></div>
+
+            <!-- Branch filter -->
+            <div class="filter-group">
+                <span class="filter-group-label"><i class="fa-solid fa-graduation-cap"></i> สาขา</span>
+                <div class="filter-scroll" id="branch-filters">
+                    <!-- JS inject -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== EVENTS COUNT BAR ===== -->
+    <div class="results-bar" id="results-bar">
+        <div class="results-inner">
+            <span id="results-count" class="results-count">
+                <i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลด...
+            </span>
+            <div class="view-toggles">
+                <button id="view-grid" class="view-btn active" onclick="setView('grid')" title="แสดงแบบตารางการ์ด"><i class="fa-solid fa-grip"></i></button>
+                <button id="view-list" class="view-btn" onclick="setView('list')" title="แสดงแบบรายการ"><i class="fa-solid fa-list"></i></button>
+                <button id="view-calendar" class="view-btn" onclick="setView('calendar')" title="แสดงแบบปฏิทิน"><i class="fa-solid fa-calendar-days"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="events-section">
+        <!-- Cards Grid (Default) -->
+        <div class="cards-container" id="cards-container">
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>กำลังโหลดกิจกรรม...</p>
+            </div>
+        </div>
+        <div id="scroll-sentinel" style="height: 50px; display: flex; align-items: center; justify-content: center; margin-bottom: 50px;">
+            <div id="loading-more" style="display: none; color: var(--slate-400); font-size: 14px;">
+                <i class="fa-solid fa-spinner fa-spin"></i> กำลังโหลดเพิ่มเติม...
+            </div>
+        </div>
+
+        <!-- Calendar View (Hidden by default) -->
+        <div id="calendar-view" style="display: none;">
+            <div class="calendar-header">
+                <h3 id="calendar-month-name"></h3>
+            </div>
+            <div class="calendar-grid" id="calendar-grid">
+                <!-- JS inject days -->
+            </div>
+        </div>
+        <!-- Inline AI Chatbot Assistant Section -->
+        <section class="chatbot-inline-section" id="ai-assistant-section" hidden>
+            <div class="chatbot-inline-card">
+                <div class="chatbot-inline-header">
+                    <div class="chatbot-inline-brand">
+                        <div class="chatbot-inline-avatar"><i class="fa-solid fa-robot"></i></div>
+                        <div class="chatbot-inline-title">
+                            <h3>น้องกิจกรรม Scitech AI Assistant</h3>
+                            <p><span class="chatbot-status-dot"></span> ผู้ช่วยอัจฉริยะ ตอบคำถามกิจกรรม เช็คคะแนน และขั้นตอนการใช้งานได้ทันที</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="chatbot-inline-body">
+                    <div class="chatbot-messages" id="inline-chatbot-messages">
+                        <div class="chat-bubble-row bot">
+                            <div class="chatbot-avatar" style="width:30px; height:30px; font-size:14px;"><i class="fa-solid fa-robot"></i></div>
+                            <div class="chat-bubble">🤖 สวัสดีครับ! พิมพ์คำถามเกี่ยวกับกิจกรรม หรือเลือกกดปุ่มสอบถามด่วนด้านล่างได้เลยครับ</div>
+                        </div>
+                    </div>
+                    <div class="chatbot-suggestions" id="inline-chatbot-suggestions">
+                        <button class="suggestion-chip" data-msg="มีกิจกรรมอะไรบ้าง">📅 กิจกรรมน่าสนใจ</button>
+                        <button class="suggestion-chip" data-msg="ฉันขาดอีกกี่คะแนนถึงจะจบ">⭐ เช็คเป้าหมายจบการศึกษา</button>
+                        <button class="suggestion-chip" data-msg="วิธีลงทะเบียนเข้าร่วมกิจกรรม">❓ วิธีลงทะเบียน</button>
+                    </div>
+                    <div class="chatbot-input-area">
+                        <input type="text" class="chatbot-input" id="inline-chatbot-input" placeholder="พิมพ์คำถามที่ต้องการทราบ..." autocomplete="off">
+                        <button class="chatbot-send-btn" id="inline-chatbot-send" title="ส่งคำถาม"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <i class="fa-solid fa-flask"></i>
+                Faculty of Science and Technology
+            </div>
+            <div class="footer-links">
+                <span>Sakon Nakhon Rajabhat University</span>
+                <a href="https://www.facebook.com/page.sci.snru" target="_blank" title="Faculty Facebook Page"><i class="fa-brands fa-facebook" style="color: #1877F2; font-size: 16px;"></i> คณะวิทยาศาสตร์และเทคโนโลยี</a>
+                <a href="https://www.facebook.com/stuo.sci.snru" target="_blank" title="Student Union Facebook Page"><i class="fa-brands fa-facebook" style="color: #1877F2; font-size: 16px;"></i> สโมสรนักศึกษา</a>
+                <a href="/admin"><i class="fa-solid fa-lock"></i> ระบบจัดการ</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ===== SHARE MODAL ===== -->
+    <div id="share-modal" class="lb-overlay" onclick="handleShareOverlayClick(event)">
+        <div class="lb-modal" style="max-width: 380px; text-align: center;">
+            <div class="lb-header">
+                <div class="lb-title">
+                    <i class="fa-solid fa-share-nodes" style="color:#0284c7;"></i>
+                    แชร์ให้เพื่อน
+                </div>
+                <button class="lb-close" onclick="closeShareModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div style="padding: 30px 20px;">
+                <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 20px;"></div>
+                <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">สแกน QR Code หรือคัดลอกลิงก์ด้านล่าง</p>
+                
+                <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 10px; border-radius: 10px; border: 1.5px solid #e2e8f0; margin-bottom: 15px;">
+                    <input type="text" id="share-url-input" readonly style="flex:1; background:none; border:none; font-size:12px; color:#475569; outline:none;" value="">
+                    <button onclick="copyShareLink()" style="background:#1e293b; color:white; border:none; padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; font-family:'Kanit';">คัดลอก</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <a href="#" id="open-new-tab" target="_blank" class="nav-btn nav-btn-outline" style="justify-content: center; font-size: 12px;">
+                        <i class="fa-solid fa-up-right-from-square"></i> เปิดในแท็บใหม่
+                    </a>
+                    <button class="nav-btn nav-btn-blue" onclick="closeShareModal()" style="justify-content: center; font-size: 12px;">ปิดหน้าต่าง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== LEADERBOARD MODAL ===== -->
+    <div id="public-leaderboard-modal" class="lb-overlay" onclick="handleLbOverlayClick(event)">
+        <div class="lb-modal">
+            <div class="lb-header">
+                <div class="lb-title">
+                    <i class="fa-solid fa-trophy" style="color:#f59e0b;"></i>
+                    อันดับผู้นำ
+                </div>
+                <button class="lb-close" onclick="closePublicLeaderboard()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="lb-list" id="public-leaderboard-list">
+                <!-- JS inject -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SCRIPTS ===== -->
+    <!-- Activity Detail Modal -->
+    <div id="activity-detail-modal" class="modal" style="display:none;">
+        <div class="modal-content activity-detail-content">
+            <button class="close-modal" onclick="closeActivityDetail()">&times;</button>
+            <div id="detail-hero" class="detail-hero"></div>
+            <div class="detail-body">
+                <div class="detail-header-info">
+                    <span id="detail-category" class="category-badge">กิจกรรม</span>
+                    <h2 id="detail-title">ชื่อกิจกรรม</h2>
+                    <div class="detail-meta">
+                        <div class="meta-item"><i class="fa-solid fa-calendar-day"></i> <span id="detail-date">12 พ.ค. 2569</span></div>
+                        <div class="meta-item"><i class="fa-solid fa-location-dot"></i> <span id="detail-location">คณะวิทยาศาสตร์และเทคโนโลยี</span></div>
+                        <div class="meta-item"><i class="fa-solid fa-user-tie"></i> <span id="detail-owner">สโมสรนักศึกษา</span></div>
+                        <div class="meta-item" id="detail-line-booking-container" style="display: none;"><i class="fa-brands fa-line" style="color: #06C755; font-size: 15px;"></i> จองด่วน LINE: <code id="detail-line-booking-code" style="background: rgba(6, 199, 85, 0.12); color: #05b04a; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 13px;">-</code></div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h3><i class="fa-solid fa-circle-info"></i> รายละเอียดกิจกรรม</h3>
+                    <p id="detail-description">ไม่มีข้อมูลรายละเอียด</p>
+                </div>
+                
+                <div class="detail-stats-row">
+                    <div class="detail-stat-box">
+                        <div class="val" id="detail-score">0</div>
+                        <div class="lbl">⭐ คะแนนที่จะได้รับ</div>
+                    </div>
+                    <div class="detail-stat-box">
+                        <div class="val" id="detail-participants">0/0</div>
+                        <div class="lbl">👥 จำนวนที่เปิดรับ</div>
+                    </div>
+                </div>
+                
+                <div class="detail-actions" id="detail-actions">
+                    <!-- Dynamic Buttons -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== REGISTRATION CONFIRMATION MODAL ===== -->
+    <div id="reg-confirm-modal" class="modal">
+        <div class="modal-content" style="max-width: 520px; padding: 24px;">
+            <button class="close-modal" onclick="closeRegisterConfirm()">&times;</button>
+            <div style="padding-top: 10px;">
+                <h2 style="margin-bottom: 12px;">ยืนยันการจองกิจกรรม</h2>
+                <p style="color:#475569; line-height:1.7;">คุณต้องการจองกิจกรรม <strong id="reg-title">-</strong> ใช่หรือไม่?</p>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:24px;">
+                    <button class="nav-btn nav-btn-outline" type="button" onclick="closeRegisterConfirm()">ยกเลิก</button>
+                    <button id="reg-confirm-btn" class="nav-btn nav-btn-blue" type="button">ยืนยันการจอง</button>
+                </div>
+            </div>
+        </div>
+    <!-- Reusable Calendar Popover Tooltip -->
+    <div id="calendar-popover" class="calendar-popover"></div>
+
+    <script src="script.js?v=1.1"></script>
+    <script src="/static/js/ux-navigation.js" defer></script>
+</body>
+
+</html>

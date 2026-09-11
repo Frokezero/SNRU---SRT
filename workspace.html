@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ศูนย์งานกิจกรรม</title>
+<link rel="stylesheet" href="/static/css/ux-foundation.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17243b;font:16px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:24px}nav,.actions{display:flex;gap:12px;flex-wrap:wrap}a{color:#1859a7}section,article{background:white;border:1px solid #d9e2ec;border-radius:12px;padding:20px;margin:16px 0}h1{font-size:1.8rem}h2{font-size:1.3rem}button,input,select{font:inherit;min-height:44px;padding:8px 12px;border:1px solid #9caec4;border-radius:8px}button{cursor:pointer;background:#1859a7;color:white}button:disabled{opacity:.6;cursor:wait}input[type=checkbox]{min-height:24px;width:24px;vertical-align:middle}label{display:block;margin:8px 0}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:12px;border-bottom:1px solid #d9e2ec}.scroll{overflow:auto}#notice{position:sticky;top:0;background:#fff4d9;padding:12px;border-radius:8px;z-index:2}#notice:empty{display:none}.muted{color:#53647a}details{padding:12px 0}summary{cursor:pointer}img.proof{max-width:100%;max-height:350px} .scores{display:flex;gap:20px;flex-wrap:wrap}.scores strong{font-size:2rem;display:block}@media(max-width:600px){main{padding:12px}section,article{padding:14px}input:not([type=checkbox]){max-width:100%}}
+</style></head>
+<body><main><nav aria-label="เมนูหลัก"><a href="/">ปฏิทินกิจกรรม</a><a href="/profile">โปรไฟล์ / ส่งหลักฐาน</a><a href="/admin" id="admin-link" hidden>ผู้ดูแล</a></nav>
+<h1>ศูนย์งานกิจกรรม</h1><p id="notice" role="status" aria-live="polite"></p><button id="refresh">โหลดข้อมูลใหม่</button>
+<div id="content" aria-busy="true">กำลังโหลดข้อมูล…</div>
+<section><h2>ช่วยเหลือการใช้งาน</h2><p>ข้อมูลส่วนนี้ใช้งานได้โดยไม่ต้องเปิด AI</p>
+<details><summary>จองกิจกรรมอย่างไร?</summary><p>เปิดหน้าปฏิทิน เลือกกิจกรรม แล้วกดจองในช่วงเปิดรับ หากที่นั่งเต็มจะเข้าคิวสำรอง ตรวจสอบสถานะได้ในโปรไฟล์</p></details>
+<details><summary>หลักฐานไม่ผ่าน ต้องทำอะไร?</summary><p>อ่านเหตุผลในประวัติด้านบน จากนั้นไปที่โปรไฟล์เพื่อส่งหลักฐานใหม่ รายการจะกลับไปรอตรวจ คะแนนรออนุมัติยังไม่นับเป็นคะแนนที่ได้รับ</p></details>
+<details><summary>ดาวน์โหลดเกียรติบัตรอย่างไร?</summary><p>เมื่อหลักฐานได้รับอนุมัติ เปิดเกียรติบัตรจากโปรไฟล์แล้วพิมพ์หรือบันทึกเป็น PDF ผู้ที่ได้รับลิงก์หรือ QR สามารถตรวจชื่อและกิจกรรมได้</p></details>
+<details><summary>ปฏิทินและการแจ้งเตือนทำงานอย่างไร?</summary><p>ไฟล์ปฏิทินรวมเฉพาะการจองที่ยืนยันและวันที่ระบบอ่านได้ เป็นสำเนา ณ เวลาดาวน์โหลด ไม่อัปเดตอัตโนมัติ การเตือนในระบบจะส่งก่อนวันกิจกรรมหนึ่งวัน และไม่ส่งอีเมลหรือ LINE จากการตั้งค่านี้</p></details></section>
+</main><script src="/static/js/workspace.js"></script></body></html>
