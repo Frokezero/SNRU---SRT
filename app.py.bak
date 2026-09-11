@@ -1,0 +1,1567 @@
+from flask import Flask, jsonify, request, send_from_directory, session, redirect
+from werkzeug.security import generate_password_hash, check_password_hash
+import json
+import os
+import uuid
+import re
+import smtplib
+import threading
+import time
+import shutil
+from datetime import datetime, timedelta
+from functools import wraps
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate, make_msgid
+from werkzeug.utils import secure_filename
+
+# Simple Cache for Performance
+_cache = {
+    "users": {"data": None, "time": 0},
+    "events": {"data": None, "time": 0},
+    "participations": {"data": None, "time": 0},
+    "registrations": {"data": None, "time": 0}
+}
+CACHE_TTL = 2 # 2 seconds cache to reduce Disk I/O under high load
+
+def require_role(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            username = session.get('username')
+            if not username:
+                return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+            users = load_users()
+            user = users.get(username)
+            if not user:
+                return jsonify({"success": False, "message": "ไม่พบผู้ใช้งาน"}), 401
+            if user.get('role') not in roles:
+                return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์เข้าถึงส่วนนี้"}), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def send_email_async(to_email, subject, body):
+    def send_email_task():
+        if not os.path.exists('email_config.json'):
+            return
+        try:
+            with open('email_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            sender_email = config.get("sender_email")
+            sender_password = config.get("sender_password")
+            smtp_server = config.get("smtp_server", "smtp.gmail.com")
+            smtp_port = config.get("smtp_port", 587)
+            
+            if not sender_email or not sender_password or sender_email == "your-email@gmail.com":
+                return # Not configured
+                
+            # Use 'alternative' so we can attach both plain text and HTML
+            msg = MIMEMultipart('alternative')
+            msg['From'] = f"University Activity Calendar <{sender_email}>"
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            msg['Date'] = formatdate(localtime=True)
+            msg['Message-ID'] = make_msgid()
+            
+            # Create a more readable plain text version
+            # Replace common block tags with newlines
+            text = re.sub(r'<(p|br|li|div|h[1-6])[^>]*>', '\n', body)
+            # Remove all other tags
+            text = re.sub(r'<[^>]+>', '', text)
+            # Clean up whitespace
+            plain_text = text.replace('&nbsp;', ' ').replace('\n\n\n', '\n\n').strip()
+            
+            # Attach plain text first, then HTML (standard practice)
+            msg.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+            msg.attach(MIMEText(body, 'html', 'utf-8'))
+            
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            server.quit()
+        except Exception as e:
+            print(f"Failed to send email to {to_email}: {e}")
+            
+    thread = threading.Thread(target=send_email_task)
+    thread.start()
+
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'super-secret-sakon-nakhon-key')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB upload limit
+
+DATA_FILE = 'events.json'
+
+USER_FILE = 'users.json'
+
+data_lock = threading.RLock()
+
+def load_users():
+    with data_lock:
+        now = time.time()
+        if _cache["users"]["data"] is not None and (now - _cache["users"]["time"] < CACHE_TTL):
+            return _cache["users"]["data"]
+            
+        if not os.path.exists(USER_FILE):
+            return {}
+        with open(USER_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            _cache["users"] = {"data": data, "time": now}
+            return data
+
+def save_json(path, data):
+    with data_lock:
+        temp_path = path + '.tmp'
+        try:
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            if os.path.exists(path):
+                os.replace(temp_path, path)
+            else:
+                os.rename(temp_path, path)
+        except Exception as e:
+            if os.path.exists(temp_path):
+                try: os.remove(temp_path)
+                except: pass
+            print(f"Error saving {path}: {e}")
+            raise e
+
+def save_users(users):
+    save_json(USER_FILE, users)
+    _cache["users"]["data"] = users
+    _cache["users"]["time"] = time.time()
+
+def get_student_year(username):
+    """Calculates student year based on ID prefix (e.g., 69 = Year 1 in 2569)"""
+    if not username: return None
+    try:
+        # Student ID usually starts with the year prefix, e.g., 6911020641...
+        prefix = str(username)[:2]
+        if prefix.isdigit():
+            start_year = int(prefix) + 2500
+            # Dynamic calculation based on current Buddhist year
+            current_year = datetime.now().year + 543
+            year = current_year - start_year + 1
+            if 1 <= year <= 8:
+                return year
+    except:
+        pass
+    return None
+
+UPLOAD_FOLDER = 'uploads'
+# Global Session Tracking
+session_lock = threading.RLock()
+ACTIVE_SESSIONS = {} # {username: last_activity_timestamp}
+SESSION_TIMEOUT = 120 # 2 minutes for release
+
+def cleanup_sessions():
+    now = time.time()
+    with session_lock:
+        expired = [u for u, t in ACTIVE_SESSIONS.items() if now - t > SESSION_TIMEOUT]
+        for u in expired:
+            ACTIVE_SESSIONS.pop(u, None)
+
+def is_system_occupied(users):
+    cleanup_sessions()
+    now = time.time()
+    with session_lock:
+        for u, t in ACTIVE_SESSIONS.items():
+            # Check if any non-admin is currently active
+            if users.get(u, {}).get('role') not in ['admin', 'major']:
+                if now - t <= SESSION_TIMEOUT:
+                    return u
+    return None
+
+ACTIVITIES_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, 'activities')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(ACTIVITIES_UPLOAD_FOLDER):
+    os.makedirs(ACTIVITIES_UPLOAD_FOLDER)
+
+PARTICIPATIONS_FILE = 'participations.json'
+
+def load_participations():
+    with data_lock:
+        now = time.time()
+        if _cache["participations"]["data"] is not None and (now - _cache["participations"]["time"] < CACHE_TTL):
+            return _cache["participations"]["data"]
+
+        if not os.path.exists(PARTICIPATIONS_FILE):
+            return []
+        with open(PARTICIPATIONS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            _cache["participations"] = {"data": data, "time": now}
+            return data
+
+def save_participations(data):
+    save_json(PARTICIPATIONS_FILE, data)
+    _cache["participations"]["data"] = data
+    _cache["participations"]["time"] = time.time()
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+REGISTRATIONS_FILE = 'registrations.json'
+
+def load_registrations():
+    with data_lock:
+        now = time.time()
+        if _cache["registrations"]["data"] is not None and (now - _cache["registrations"]["time"] < CACHE_TTL):
+            return _cache["registrations"]["data"]
+        if not os.path.exists(REGISTRATIONS_FILE):
+            return []
+        with open(REGISTRATIONS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            _cache["registrations"] = {"data": data, "time": now}
+            return data
+
+def save_registrations(data):
+    save_json(REGISTRATIONS_FILE, data)
+    _cache["registrations"]["data"] = data
+    _cache["registrations"]["time"] = time.time()
+
+def load_carousel():
+    with data_lock:
+        if not os.path.exists('carousel.json'):
+            return []
+        with open('carousel.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+
+def save_carousel(images):
+    save_json('carousel.json', images)
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+def load_events():
+    with data_lock:
+        now = time.time()
+        if _cache["events"]["data"] is not None and (now - _cache["events"]["time"] < CACHE_TTL):
+            return _cache["events"]["data"]
+            
+        if not os.path.exists(DATA_FILE):
+            return []
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            _cache["events"] = {"data": data, "time": now}
+            return data
+
+def save_events(events):
+    save_json(DATA_FILE, events)
+    _cache["events"]["data"] = events
+    _cache["events"]["time"] = time.time()
+
+# =============================================================
+# BACKUP SYSTEM
+# =============================================================
+BACKUP_FOLDER = 'backups'
+MAX_BACKUP_DAYS = 7
+
+def perform_system_backup():
+    try:
+        if not os.path.exists(BACKUP_FOLDER):
+            os.makedirs(BACKUP_FOLDER)
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        current_backup_path = os.path.join(BACKUP_FOLDER, f"backup_{timestamp}")
+        os.makedirs(current_backup_path)
+        
+        files_to_backup = [
+            USER_FILE, DATA_FILE, PARTICIPATIONS_FILE, 
+            REGISTRATIONS_FILE, 'carousel.json', 'email_config.json'
+        ]
+        
+        for file_name in files_to_backup:
+            if os.path.exists(file_name):
+                shutil.copy2(file_name, os.path.join(current_backup_path, file_name))
+        
+        print(f"   [BACKUP] System backup completed: {timestamp}")
+        cleanup_old_backups()
+    except Exception as e:
+        print(f"   [BACKUP] Error during backup: {e}")
+
+def cleanup_old_backups():
+    try:
+        now = time.time()
+        for folder in os.listdir(BACKUP_FOLDER):
+            folder_path = os.path.join(BACKUP_FOLDER, folder)
+            if os.path.isdir(folder_path):
+                # Check creation time
+                if os.path.getctime(folder_path) < now - (MAX_BACKUP_DAYS * 86400):
+                    shutil.rmtree(folder_path)
+                    print(f"   [BACKUP] Removed old backup: {folder}")
+    except Exception as e:
+        print(f"   [BACKUP] Error during cleanup: {e}")
+
+def run_backup_scheduler():
+    # Initial backup on startup
+    perform_system_backup()
+    while True:
+        # Wait for 24 hours (86400 seconds)
+        time.sleep(86400)
+        perform_system_backup()
+
+# Start scheduler thread
+backup_thread = threading.Thread(target=run_backup_scheduler, daemon=True)
+backup_thread.start()
+
+# =============================================================
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/login')
+def login_page():
+    if 'username' in session:
+        users = load_users()
+        if session['username'] in users:
+            role = users[session['username']]['role']
+            if role in ['admin', 'major']:
+                return redirect('/admin')
+            else:
+                return redirect('/')
+    return send_from_directory('.', 'login.html')
+
+@app.route('/admin')
+def admin():
+    if 'username' not in session:
+        return redirect('/login')
+    users = load_users()
+    if session['username'] not in users or users[session['username']]['role'] not in ['admin', 'major']:
+        return redirect('/')
+    return send_from_directory('.', 'admin.html')
+
+@app.route('/profile')
+def profile():
+    if 'username' not in session:
+        return redirect('/login')
+    users = load_users()
+    if session['username'] not in users or users[session['username']]['role'] != 'student':
+        return redirect('/')
+    return send_from_directory('.', 'profile.html')
+
+
+# Routes will follow...
+
+# Auth API
+@app.before_request
+def update_activity():
+    # 1. Public Routes: Fully accessible without session
+    public_paths = [
+        '/', '/login', '/api/login', '/api/register', '/register', 
+        '/api/carousel', '/api/events', '/api/leaderboard', '/theme-loader.js',
+        '/style.css', '/script.js', '/favicon.ico'
+    ]
+    
+    if request.path in public_paths or request.path.startswith('/static') or request.path.startswith('/uploads'):
+        return
+
+    # 2. Session Update: If logged in, update last activity
+    username = session.get('username')
+    if username:
+        with session_lock:
+            ACTIVE_SESSIONS[username] = time.time()
+        return
+    
+    # 3. Secure Routes: If not logged in and not public, block access
+    if request.path.startswith('/api/'):
+        return jsonify({"success": False, "message": "Session expired"}), 401
+    return redirect('/login')
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    users = load_users()
+    if username in users and check_password_hash(users[username]['password'], password):
+        user_role = users[username].get('role')
+        
+        with session_lock:
+            # Restriction: Only one non-admin user at a time
+            if user_role not in ['admin', 'major']:
+                active_u = is_system_occupied(users)
+                # Allow if system is free OR if the active user is the SAME person trying to login
+                if active_u and active_u != username:
+                    return jsonify({
+                        "success": False, 
+                        "message": f"ขณะนี้มีผู้ใช้งานอื่นอยู่ในระบบ ({active_u}) โปรดรอให้ผู้ใช้งานเดิมออกจากระบบก่อน"
+                    }), 403
+            
+            session['username'] = username
+            ACTIVE_SESSIONS[username] = time.time()
+        return jsonify({"success": True, "user": {"name": users[username]['name'], "role": user_role}})
+    
+    return jsonify({"success": False, "message": "Username หรือ Password ไม่ถูกต้อง"}), 401
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    username = session.get('username')
+    if username:
+        with session_lock:
+            ACTIVE_SESSIONS.pop(username, None)
+    session.pop('username', None)
+    return jsonify({"success": True})
+
+@app.route('/api/me', methods=['GET'])
+def me():
+    username = session.get('username')
+    if username:
+        users = load_users()
+        if username in users:
+            u = users[username]
+            return jsonify({
+                "success": True, 
+                "user": {
+                    "username": username,
+                    "name": u['name'], 
+                    "role": u['role'],
+                    "major": u.get('major', u.get('name')),
+                    "year": get_student_year(username) if u.get('role') == 'student' else None
+                }
+            })
+    return jsonify({"success": False}), 401
+
+# Password Management API
+TOKENS_FILE = 'reset_tokens.json'
+
+def load_tokens():
+    with data_lock:
+        if not os.path.exists(TOKENS_FILE):
+            return {}
+        with open(TOKENS_FILE, 'r', encoding='utf-8') as f:
+            try:
+                return json.load(f)
+            except:
+                return {}
+
+def save_tokens(tokens):
+    save_json(TOKENS_FILE, tokens)
+
+@app.route('/reset-password')
+def reset_password_page():
+    return send_from_directory('.', 'reset_password.html')
+
+@app.route('/api/user/change-password', methods=['POST'])
+def change_password():
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+    
+    data = request.json
+    current_pw = data.get('currentPassword')
+    new_pw = data.get('newPassword')
+    
+    if not current_pw or not new_pw:
+        return jsonify({"success": False, "message": "ข้อมูลไม่ครบถ้วน"}), 400
+        
+    with data_lock:
+        users = load_users()
+        # Check if existing password matches (handling hashed vs plain if necessary)
+        # The current login uses check_password_hash, but let's see how register saves it.
+        if not check_password_hash(users[username]['password'], current_pw):
+            return jsonify({"success": False, "message": "รหัสผ่านเดิมไม่ถูกต้อง"}), 400
+            
+        users[username]['password'] = generate_password_hash(new_pw)
+        save_users(users)
+    return jsonify({"success": True, "message": "เปลี่ยนรหัสผ่านสำเร็จ"})
+
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    email = request.json.get('email')
+    if not email:
+        return jsonify({"success": False, "message": "กรุณาระบุอีเมล"}), 400
+        
+    with data_lock:
+        users = load_users()
+        user_target = None
+        username_target = None
+        for uname, udata in users.items():
+            if udata.get('email') == email:
+                user_target = udata
+                username_target = uname
+                break
+                
+        if not user_target:
+            return jsonify({"success": False, "message": "ไม่พบอีเมลนี้ในระบบ"}), 404
+            
+        # Generate Token
+        token = uuid.uuid4().hex
+        tokens = load_tokens()
+        tokens[token] = {
+            "username": username_target,
+            "expiry": time.time() + (15 * 60) # 15 mins
+        }
+        save_tokens(tokens)
+    
+    # Send Email
+    subject = "แจ้งเปลี่ยนรหัสผ่านใหม่ (Reset Password)"
+    reset_link = f"{request.host_url}reset-password?token={token}"
+    body = f"""
+    <div style="font-family:Kanit,sans-serif;max-width:500px;margin:auto;padding:24px;background:#f8fafc;border-radius:12px;">
+        <h2 style="color:#0284c7;">🔒 คำขอเปลี่ยนรหัสผ่าน</h2>
+        <p>สวัสดีคุณ <strong>{user_target.get('name', username_target)}</strong></p>
+        <p>เราได้รับคำขอเปลี่ยนรหัสผ่านสำหรับบัญชีของคุณ กรุณาคลิกปุ่มด้านล่างเพื่อดำเนินการต่อ:</p>
+        <div style="text-align:center;margin:32px 0;">
+            <a href="{reset_link}" style="background:#0284c7;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">เปลี่ยนรหัสผ่านใหม่</a>
+        </div>
+        <p style="color:#64748b;font-size:12px;">* ลิงก์นี้จะหมดอายุภายใน 15 นาที</p>
+        <p style="color:#64748b;font-size:12px;">หากคุณไม่ได้เป็นผู้ทำรายการ กรุณาละเว้นอีเมลฉบับนี้</p>
+    </div>
+    """
+    send_email_async(email, subject, body)
+    return jsonify({"success": True, "message": "ส่งลิงก์เปลี่ยนรหัสผ่านไปทางอีเมลแล้ว"})
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    data = request.json
+    token = data.get('token')
+    new_pw = data.get('newPassword')
+    
+    if not token or not new_pw:
+        return jsonify({"success": False, "message": "ข้อมูลไม่ครบถ้วน"}), 400
+        
+    with data_lock:
+        tokens = load_tokens()
+        if token not in tokens:
+            return jsonify({"success": False, "message": "Token ไม่ถูกต้องหรือหมดอายุ"}), 400
+            
+        token_data = tokens[token]
+        if time.time() > token_data['expiry']:
+            del tokens[token]
+            save_tokens(tokens)
+            return jsonify({"success": False, "message": "Token หมดอายุแล้ว"}), 400
+            
+        username = token_data['username']
+        users = load_users()
+        if username in users:
+            users[username]['password'] = generate_password_hash(new_pw)
+            save_users(users)
+            
+        # Clean up token
+        del tokens[token]
+        save_tokens(tokens)
+    
+    return jsonify({"success": True, "message": "เปลี่ยนรหัสผ่านใหม่สำเร็จแล้ว"})
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    name = data.get('name')
+    major = data.get('major')
+    email = data.get('email')
+    
+    if not username or not password or not name or not email or not major:
+        return jsonify({"success": False, "message": "กรุณากรอกข้อมูลให้ครบถ้วน"}), 400
+
+    # Strict Validation
+    if not re.match(r'^\d+$', username):
+        return jsonify({"success": False, "message": "รหัสนักศึกษาต้องเป็นตัวเลขเท่านั้น"}), 400
+    
+    if not re.match(r'^[ก-๙\s]+$', name):
+        return jsonify({"success": False, "message": "ชื่อ-นามสกุล ต้องเป็นภาษาไทยเท่านั้นและห้ามมีอักขระพิเศษ"}), 400
+        
+    if '@' not in email:
+        return jsonify({"success": False, "message": "กรุณาระบุอีเมลที่ถูกต้อง"}), 400
+
+    with data_lock:
+        users = load_users()
+        if username in users:
+            return jsonify({"success": False, "message": "รหัสนักศึกษานี้ถูกลงทะเบียนแล้ว"}), 400
+        
+        users[username] = {
+            "password": generate_password_hash(password),
+            "name": name,
+            "email": email,
+            "major": major,
+            "role": "student"
+        }
+        save_users(users)
+    
+    # Send welcome email
+    subject = "ยินดีต้อนรับเข้าสู่ระบบ University Activity Calendar"
+    body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+        <h2>ยินดีต้อนรับคุณ {name}</h2>
+        <p>คุณได้ทำการสมัครสมาชิกในระบบ <strong>University Activity Calendar</strong> เรียบร้อยแล้ว</p>
+        <p><strong>ข้อมูลของคุณ:</strong></p>
+        <ul>
+            <li>รหัสนักศึกษา (Username): {username}</li>
+            <li>สาขาวิชา: {major}</li>
+        </ul>
+        <p>คุณสามารถเข้าสู่ระบบเพื่อติดตามและส่งผลงานการเข้าร่วมกิจกรรมได้ทันที</p>
+        <hr>
+        <p style="font-size: 12px; color: #888;">อีเมลฉบับนี้ส่งจากระบบอัตโนมัติ กรุณาอย่าตอบกลับ</p>
+    </body>
+    </html>
+    """
+    send_email_async(email, subject, body)
+    save_users(users)
+    
+    # Auto login
+    session['username'] = username
+    return jsonify({"success": True, "message": "สมัครสมาชิกสำเร็จ", "user": {"name": name, "role": "student"}})
+
+@app.route('/api/admin/users', methods=['GET'])
+def get_users():
+    username = session.get('username')
+    users = load_users()
+    if not username or username not in users:
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    current_user = users[username]
+    role = current_user.get('role')
+    
+    if role not in ['admin', 'major']:
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+        
+    filtered_users = {}
+    if role == 'admin':
+        filtered_users = users
+    elif role == 'major':
+        my_major_name = current_user.get('name')
+        for u_id, u_data in users.items():
+            if u_data.get('role') == 'student' and u_data.get('major') == my_major_name:
+                filtered_users[u_id] = u_data
+            elif u_id == username:
+                filtered_users[u_id] = u_data
+                
+    return jsonify(filtered_users)
+
+@app.route('/api/admin/update-user', methods=['POST'])
+@require_role('admin', 'major')
+def update_user():
+    username = session.get('username')
+    data = request.json
+    target_user = data.get('username')
+    new_name = data.get('name')
+    new_password = data.get('password')
+
+    with data_lock:
+        users = load_users()
+        current_user = users[username]
+        role = current_user.get('role')
+            
+        if target_user not in users:
+            return jsonify({"success": False, "message": "ไม่พบผู้ใช้งาน"}), 404
+            
+        target_data = users[target_user]
+        
+        if role == 'major':
+            my_major_name = current_user.get('name')
+            if target_user != username and (target_data.get('role') != 'student' or target_data.get('major') != my_major_name):
+                return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์แก้ไขผู้ใช้งานนี้"}), 403
+                
+        if new_name:
+            users[target_user]['name'] = new_name
+        if new_password:
+            users[target_user]['password'] = generate_password_hash(new_password)
+            
+        save_users(users)
+    return jsonify({"success": True, "message": f"อัปเดตข้อมูลของ {target_user} เรียบร้อยแล้ว"})
+
+
+
+
+@app.route('/api/carousel', methods=['GET'])
+def get_carousel():
+    return jsonify(load_carousel())
+
+@app.route('/api/carousel/upload', methods=['POST'])
+@require_role('admin')
+def upload_carousel():
+    
+    if 'image' not in request.files:
+        return jsonify({"success": False, "message": "No image part"}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"success": False, "message": "No selected file"}), 400
+        
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "message": "File type not allowed"}), 400
+    
+    if file:
+        original_ext = os.path.splitext(file.filename)[1]
+        # Use UUID but still secure the base to be safe
+        filename = secure_filename(f"{uuid.uuid4()}{original_ext}")
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        
+        # Add to carousel.json
+        images = load_carousel()
+        images.append(f"/uploads/{filename}")
+        save_carousel(images)
+        
+        return jsonify({"success": True, "url": f"/uploads/{filename}"})
+    return jsonify({"success": False})
+
+@app.route('/api/carousel/delete/<int:index>', methods=['POST'])
+def delete_carousel(index):
+    username = session.get('username')
+    users = load_users()
+    if not username or users.get(username, {}).get('role') != 'admin':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+        
+    images = load_carousel()
+    if 0 <= index < len(images):
+        images.pop(index)
+        save_carousel(images)
+        return jsonify({"success": True})
+    return jsonify({"success": False, "message": "Index out of range"}), 400
+
+@app.route('/api/admin/carousel', methods=['POST'])
+def update_carousel_list():
+    username = session.get('username')
+    users = load_users()
+    if not username or users.get(username, {}).get('role') != 'admin':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    images = request.json.get('images', [])
+    save_carousel(images)
+    return jsonify({"success": True, "message": "อัปเดตรูปภาพเรียบร้อยแล้ว"})
+
+# Events API
+@app.route('/api/events', methods=['GET'])
+def get_events():
+    events = load_events()
+    regs = load_registrations()
+    
+    # Calculate registered count for each event
+    reg_counts = {}
+    for r in regs:
+        if r.get('status') != 'cancelled':
+            eid = r.get('event_id')
+            reg_counts[eid] = reg_counts.get(eid, 0) + 1
+
+    for e in events:
+        if 'owner' not in e:
+            e['owner'] = "สโมสรนักศึกษา" # Default owner for old events
+        e['registered_count'] = reg_counts.get(e['id'], 0)
+        
+    return jsonify(events)
+
+@app.route('/api/events', methods=['POST'])
+def add_event():
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+    
+    with data_lock:
+        events = load_events()
+        new_event = request.json
+        
+        # Security Validation
+        title = new_event.get('title', '')
+        if not title:
+            return jsonify({"success": False, "message": "กรุณาระบุชื่อกิจกรรม"}), 400
+        
+        # Block script tags and obvious injection
+        if '<script' in title.lower() or 'javascript:' in title.lower() or '<iframe' in title.lower():
+            return jsonify({"success": False, "message": "ชื่อกิจกรรมมีอักขระที่ไม่ได้รับอนุญาต"}), 400
+            
+        desc = new_event.get('description', '')
+        if '<script' in desc.lower() or 'javascript:' in desc.lower():
+            return jsonify({"success": False, "message": "คำอธิบายมีอักขระที่ไม่ได้รับอนุญาต"}), 400
+
+        new_event['id'] = str(uuid.uuid4())
+        
+        # Set Defaults
+        if 'registration_open' not in new_event:
+            new_event['registration_open'] = True
+        
+        try:
+            new_event['max_participants'] = int(new_event.get('max_participants', 200))
+        except:
+            new_event['max_participants'] = 200
+            
+        users = load_users()
+        
+        # Permission Check for University Category
+        if new_event.get('category') == 'กิจกรรมมหาวิทยาลัย' and users[username]['role'] != 'admin':
+            return jsonify({"success": False, "message": "เฉพาะแอดมินส่วนกลางเท่านั้นที่สามารถเพิ่มกิจกรรมมหาวิทยาลัยได้"}), 403
+
+        # Assign owner based on role
+        if users[username]['role'] == 'admin' and new_event.get('owner'):
+            pass # Admin can assign any owner
+        else:
+            new_event['owner'] = users[username]['name'] # Majors can only create for themselves
+            
+        new_event['created_at'] = datetime.now().isoformat()
+        events.append(new_event)
+        save_events(events)
+    return jsonify({'success': True, 'event': new_event})
+
+@app.route('/api/events/<event_id>', methods=['PUT'])
+def update_event(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+
+    with data_lock:
+        events = load_events()
+        updated_event = request.json
+        
+        users = load_users()
+        for i, event in enumerate(events):
+            if event['id'] == event_id:
+                event_owner = event.get('owner', 'สโมสรนักศึกษา')
+                # Check permissions
+                if users[username]['role'] != 'admin' and users[username]['name'] != event_owner:
+                    return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์แก้ไขกิจกรรมของสาขาอื่น"}), 403
+                
+                updated_event['id'] = event_id
+                
+                # Security Validation
+                title = updated_event.get('title', '')
+                if '<script' in title.lower() or 'javascript:' in title.lower():
+                    return jsonify({"success": False, "message": "ชื่อกิจกรรมมีอักขระที่ไม่ได้รับอนุญาต"}), 400
+                
+                # Permission Check for University Category
+                if updated_event.get('category') == 'กิจกรรมมหาวิทยาลัย' and users[username]['role'] != 'admin':
+                    return jsonify({"success": False, "message": "เฉพาะแอดมินส่วนกลางเท่านั้นที่สามารถจัดการกิจกรรมมหาวิทยาลัยได้"}), 403
+
+                # If admin, they might have changed the owner. If major, keep original owner.
+                if users[username]['role'] != 'admin':
+                    updated_event['owner'] = event_owner
+                
+                try:
+                    updated_event['max_participants'] = int(updated_event.get('max_participants', 200))
+                except:
+                    pass
+                
+                # Preserve essential backend-managed fields
+                updated_event['created_at'] = event.get('created_at')
+                updated_event['registered_count'] = event.get('registered_count', 0)
+                if 'hidden' in event:
+                    updated_event['hidden'] = event['hidden']
+                    
+                events[i] = updated_event
+                save_events(events)
+                return jsonify({'success': True, 'event': updated_event})
+                
+        return jsonify({'success': False, 'message': 'Event not found'}), 404
+
+@app.route('/api/events/delete/<event_id>', methods=['POST'])
+def delete_event(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+
+    with data_lock:
+        events = load_events()
+        
+        # Find event to check permission
+        target_event = None
+        for e in events:
+            if e['id'] == event_id:
+                target_event = e
+                break
+                
+        if not target_event:
+            return jsonify({'success': False, 'message': 'Event not found'}), 404
+            
+        users = load_users()
+        event_owner = target_event.get('owner', 'สโมสรนักศึกษา')
+        if users[username]['role'] != 'admin' and users[username]['name'] != event_owner:
+            return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์ลบกิจกรรมของสาขาอื่น"}), 403
+
+        events = [e for e in events if e['id'] != event_id]
+        save_events(events)
+        return jsonify({'success': True})
+
+@app.route('/api/events/<event_id>/toggle-visibility', methods=['POST'])
+def toggle_event_visibility(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+    
+    with data_lock:
+        users = load_users()
+        if users.get(username, {}).get('role') not in ['admin', 'major']:
+            return jsonify({"success": False, "message": "Unauthorized"}), 403
+        events = load_events()
+        for event in events:
+            if event['id'] == event_id:
+                if users[username]['role'] != 'admin' and users[username]['name'] != event.get('owner', ''):
+                    return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์จัดการกิจกรรมนี้"}), 403
+                event['hidden'] = not event.get('hidden', False)
+                save_events(events)
+                return jsonify({"success": True, "hidden": event['hidden']})
+        return jsonify({"success": False, "message": "ไม่พบกิจกรรม"}), 404
+
+# ==================== REGISTRATION SYSTEM ====================
+
+@app.route('/api/events/<event_id>/register', methods=['POST'])
+def register_event(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบก่อน"}), 401
+    users = load_users()
+    if users.get(username, {}).get('role') != 'student':
+        return jsonify({"success": False, "message": "เฉพาะนักศึกษาเท่านั้นที่จองกิจกรรมได้"}), 403
+    
+    with data_lock:
+        events = load_events()
+        event = next((e for e in events if e['id'] == event_id), None)
+        if not event:
+            return jsonify({"success": False, "message": "ไม่พบกิจกรรม"}), 404
+        if not event.get('registration_open', False):
+            return jsonify({"success": False, "message": "กิจกรรมนี้ยังไม่เปิดรับการจอง"}), 400
+        regs = load_registrations()
+        # Check duplicate
+        existing = next((r for r in regs if r['event_id'] == event_id and r['username'] == username and r['status'] != 'cancelled'), None)
+        if existing:
+            return jsonify({"success": False, "message": "คุณจองกิจกรรมนี้แล้ว"}), 400
+        # Check capacity
+        max_p = event.get('max_participants', 0)
+        status = "confirmed"
+        if max_p > 0:
+            active_confirmed = sum(1 for r in regs if r['event_id'] == event_id and r['status'] == 'confirmed')
+            if active_confirmed >= max_p:
+                status = "waitlist"
+
+        user_info = users[username]
+        reg = {
+            "id": "reg_" + uuid.uuid4().hex[:10],
+            "event_id": event_id,
+            "event_title": event.get('title', ''),
+            "event_date": event.get('date', ''),
+            "username": username,
+            "name": user_info.get('name', username),
+            "major": user_info.get('major', ''),
+            "email": user_info.get('email', ''),
+            "timestamp": time.strftime('%Y-%m-%dT%H:%M:%S'),
+            "status": status
+        }
+        regs.append(reg)
+        save_registrations(regs)
+
+    # Send confirmation email
+    if user_info.get('email'):
+        subject = f"ยืนยันการจอง: {event.get('title', '')}" if status == "confirmed" else f"สถานะสำรองที่นั่ง: {event.get('title', '')}"
+        status_title = "✅ จองกิจกรรมสำเร็จ!" if status == "confirmed" else "⏳ คุณอยู่ในรายชื่อสำรอง"
+        status_color = "#0284c7" if status == "confirmed" else "#f59e0b"
+        status_desc = "ยืนยันที่นั่งแล้ว" if status == "confirmed" else "รายชื่อสำรอง (จะแจ้งให้ทราบหากมีที่นั่งว่าง)"
+        
+        body = f"""
+        <div style="font-family:Kanit,sans-serif;max-width:500px;margin:auto;padding:24px;background:#f8fafc;border-radius:12px;">
+            <h2 style="color:{status_color};">{status_title}</h2>
+            <p>สวัสดี <strong>{user_info.get('name', username)}</strong></p>
+            <div style="background:white;padding:16px;border-radius:8px;border-left:4px solid {status_color};margin:16px 0;">
+                <p><strong>📅 กิจกรรม:</strong> {event.get('title', '')}</p>
+                <p><strong>🗓️ วันที่:</strong> {event.get('date', '')}</p>
+                <p><strong>📍 สถานที่:</strong> {event.get('location', 'ยังไม่ระบุ')}</p>
+                <p><strong>🏷️ สถานะ:</strong> {status_desc}</p>
+            </div>
+            <p style="color:#64748b;font-size:13px;">คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร</p>
+        </div>"""
+        send_email_async(user_info['email'], subject, body)
+
+    return jsonify({"success": True, "message": "จองสำเร็จ!" if status == "confirmed" else "ลงชื่อสำรองสำเร็จ!", "status": status, "registration": reg})
+
+@app.route('/api/events/<event_id>/unregister', methods=['POST'])
+def unregister_event(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+    
+    with data_lock:
+        regs = load_registrations()
+        reg = next((r for r in regs if r['event_id'] == event_id and r['username'] == username and r['status'] != 'cancelled'), None)
+        if not reg:
+            return jsonify({"success": False, "message": "ไม่พบการจองของคุณ"}), 404
+        reg['status'] = 'cancelled'
+        save_registrations(regs)
+        return jsonify({"success": True, "message": "ยกเลิกการจองแล้ว"})
+
+@app.route('/api/registrations/<reg_id>/status', methods=['POST'])
+@require_role('admin', 'major', 'student')
+def update_registration_status(reg_id):
+    username = session.get('username')
+    users = load_users()
+    user = users.get(username)
+
+    data = request.json
+    new_status = data.get('status')
+    if not new_status:
+        return jsonify({"success": False, "message": "กรุณาระบุสถานะ"}), 400
+
+    with data_lock:
+        regs = load_registrations()
+        reg = next((r for r in regs if r['id'] == reg_id), None)
+        if not reg:
+            return jsonify({"success": False, "message": "ไม่พบข้อมูลการจอง"}), 404
+
+        # Permission check: Admin/Major can change status, Student can only cancel their own
+        if user['role'] not in ['admin', 'major'] and reg['username'] != username:
+            return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์จัดการการจองนี้"}), 403
+        
+        if user['role'] not in ['admin', 'major'] and new_status != 'cancelled':
+            return jsonify({"success": False, "message": "คุณสามารถทำได้เพียงยกเลิกการจองเท่านั้น"}), 403
+
+        reg['status'] = new_status
+        save_registrations(regs)
+        return jsonify({"success": True, "message": f"อัปเดตสถานะเรียบร้อยแล้ว"})
+
+@app.route('/api/my/registrations', methods=['GET'])
+def my_registrations():
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+    regs = load_registrations()
+    my_regs = [r for r in regs if r['username'] == username]
+    return jsonify(my_regs)
+
+@app.route('/api/events/<event_id>/registrations', methods=['GET'])
+@require_role('admin', 'major')
+def event_registrations(event_id):
+    regs = load_registrations()
+    event_regs = [r for r in regs if r['event_id'] == event_id]
+    return jsonify(event_regs)
+
+@app.route('/api/events/<event_id>/my-registration', methods=['GET'])
+def my_event_registration(event_id):
+    username = session.get('username')
+    if not username:
+        return jsonify(None)
+    regs = load_registrations()
+    reg = next((r for r in regs if r['event_id'] == event_id and r['username'] == username and r['status'] != 'cancelled'), None)
+    return jsonify(reg)
+
+# =============================================================
+
+@app.route('/api/student/participate', methods=['POST'])
+def submit_participation():
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "กรุณาเข้าสู่ระบบ"}), 401
+        
+    users = load_users()
+    if username not in users or users[username].get('role') != 'student':
+        return jsonify({"success": False, "message": "เฉพาะนักศึกษาเท่านั้น"}), 403
+        
+    with data_lock:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "message": "ไม่พบไฟล์รูปภาพ"}), 400
+            
+        file = request.files['file']
+        event_id = request.form.get('event_id')
+    
+        if not event_id or file.filename == '':
+            return jsonify({"success": False, "message": "ข้อมูลไม่ครบถ้วน"}), 400
+
+        events = load_events()
+        event = next((e for e in events if e['id'] == event_id), None)
+        if not event:
+            return jsonify({"success": False, "message": "ไม่พบกิจกรรม"}), 404
+            
+        # Check if already participated BEFORE saving file
+        participations = load_participations()
+        for p in participations:
+            if p.get('username') == username and p.get('event_id') == event_id:
+                return jsonify({"success": False, "message": "คุณได้ส่งภาพสำหรับกิจกรรมนี้ไปแล้ว"}), 400
+
+        # Use server-side event data for integrity
+        actual_title = event.get('title', 'กิจกรรม')
+        actual_date = event.get('date', '')
+        actual_score = int(event.get('score', 0))
+
+        if file and allowed_file(file.filename):
+            # Strict validation: check MIME type if possible, or just stay with extension but harden path
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            # Ensure only allowed characters in filename and unique name
+            raw_filename = f"{username}_{event_id}_{uuid.uuid4().hex[:8]}.{ext}"
+            filename = secure_filename(raw_filename)
+            filepath = os.path.join(ACTIVITIES_UPLOAD_FOLDER, filename)
+            
+            # Verify the path is still within the upload folder (prevent path traversal)
+            if not os.path.abspath(filepath).startswith(os.path.abspath(ACTIVITIES_UPLOAD_FOLDER)):
+                return jsonify({"success": False, "message": "Invalid file path"}), 400
+                
+            file.save(filepath)
+            
+            record = {
+                "id": str(uuid.uuid4()),
+                "username": username,
+                "student_name": users[username]['name'],
+                "major": users[username].get('major'),
+                "event_id": event_id,
+                "event_title": actual_title,
+                "event_date": actual_date,
+                "score": actual_score,
+                "timestamp": datetime.now().isoformat(),
+                "image_url": f"/uploads/activities/{filename}",
+                "status": "pending"
+            }
+            participations.append(record)
+            save_participations(participations)
+            
+            # Send confirmation email
+            student_email = users[username].get('email')
+            if student_email:
+                subject = f"ยืนยันการส่งผลงานกิจกรรม: {actual_title}"
+                body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <h2>สวัสดีคุณ {users[username]['name']}</h2>
+                    <p>ระบบได้รับภาพยืนยันการเข้าร่วมกิจกรรมของคุณเรียบร้อยแล้ว</p>
+                    <div style="background: #f8fafc; padding: 15px; border-left: 4px solid #0284c7; margin: 20px 0;">
+                        <p style="margin: 0;"><strong>กิจกรรม:</strong> {actual_title}</p>
+                        <p style="margin: 5px 0 0 0;"><strong>วันที่เข้าร่วม:</strong> {actual_date}</p>
+                    </div>
+                    <p>แอดมินสาขาจะทำการตรวจสอบความถูกต้องของผลงานต่อไป ขอบคุณที่ให้ความร่วมมือครับ</p>
+                    <hr>
+                    <p style="font-size: 12px; color: #888;">อีเมลฉบับนี้ส่งจากระบบอัตโนมัติ กรุณาอย่าตอบกลับ</p>
+                </body>
+                </html>
+                """
+                send_email_async(student_email, subject, body)
+            
+            return jsonify({"success": True, "message": "บันทึกประวัติการเข้าร่วมสำเร็จ"})
+    
+    return jsonify({"success": False, "message": "ประเภทไฟล์ไม่ได้รับอนุญาต"}), 400
+
+@app.route('/api/student/history', methods=['GET'])
+def get_student_history():
+    username = session.get('username')
+    if not username:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+        
+    participations = load_participations()
+    my_history = [p for p in participations if p.get('username') == username]
+    return jsonify(my_history)
+
+@app.route('/api/admin/student/<username>/activities', methods=['GET'])
+@require_role('admin', 'major')
+def get_student_activities(username):
+    
+    parts = load_participations()
+    events = load_events()
+    event_dict = {e['id']: e for e in events}
+    
+    student_acts = []
+    for p in parts:
+        if p['username'] == username:
+            evt = event_dict.get(p['event_id'])
+            if evt:
+                student_acts.append({
+                    "id": p['id'],
+                    "title": evt['title'],
+                    "date": evt['date'],
+                    "owner": evt['owner'],
+                    "score": p.get('score', evt.get('score', 0)),
+                    "status": p.get('status', 'pending')
+                })
+    
+    return jsonify(student_acts)
+
+@app.route('/api/admin/participations/<part_id>', methods=['PUT', 'DELETE'])
+@require_role('admin')
+def manage_participation(part_id):
+        
+    participations = load_participations()
+    part_index = next((i for i, p in enumerate(participations) if p['id'] == part_id), None)
+    
+    if part_index is None:
+        return jsonify({"success": False, "message": "ไม่พบข้อมูลประวัติ"}), 404
+        
+    if request.method == 'DELETE':
+        del participations[part_index]
+        save_participations(participations)
+        return jsonify({"success": True, "message": "ลบประวัติเรียบร้อยแล้ว"})
+        
+    if request.method == 'PUT':
+        data = request.json
+        participations[part_index]['score'] = data.get('score', participations[part_index].get('score', 0))
+        participations[part_index]['status'] = data.get('status', participations[part_index].get('status', 'pending'))
+        save_participations(participations)
+        return jsonify({"success": True, "message": "อัปเดตข้อมูลเรียบร้อยแล้ว"})
+
+@app.route('/api/admin/participations', methods=['GET'])
+@require_role('admin', 'major')
+def get_admin_participations():
+    username = session.get('username')
+    users = load_users()
+    current_user = users[username]
+    role = current_user.get('role')
+    
+    participations = load_participations()
+    
+    if role == 'admin':
+        return jsonify(participations)
+    else:
+        # Major can only see participations of their students
+        my_major_name = current_user.get('name')
+        filtered = [p for p in participations if p.get('major') == my_major_name]
+        return jsonify(filtered)
+
+@app.route('/uploads/activities/<filename>')
+def uploaded_activity_file(filename):
+    return send_from_directory(ACTIVITIES_UPLOAD_FOLDER, filename)
+
+@app.route('/api/admin/event/<event_id>/students', methods=['GET'])
+@require_role('admin', 'major')
+def get_event_students(event_id):
+    username = session.get('username')
+    users = load_users()
+    current_user = users[username]
+    role = current_user.get('role')
+    my_major_name = current_user.get('name')
+    
+    # Load participations for this event
+    participations = load_participations()
+    event_parts = {p['username']: p for p in participations if p.get('event_id') == event_id}
+    
+    result = []
+    for u_id, u_data in users.items():
+        if u_data.get('role') == 'student':
+            # Major can only see their students
+            if role == 'major' and u_data.get('major') != my_major_name:
+                continue
+                
+            part = event_parts.get(u_id)
+            if part:
+                status = part.get('status', 'pending')
+                image_url = part.get('image_url')
+                part_id = part.get('id')
+            else:
+                status = 'not_participated'
+                image_url = None
+                part_id = None
+                
+            result.append({
+                "username": u_id,
+                "name": u_data.get('name'),
+                "major": u_data.get('major'),
+                "status": status,
+                "image_url": image_url,
+                "participation_id": part_id
+            })
+            
+    return jsonify(result)
+
+@app.route('/api/admin/participations/update_status', methods=['POST'])
+@require_role('admin', 'major')
+def update_participation_status():
+    data = request.json
+    event_id = data.get('event_id')
+    updates = data.get('updates') # List of dicts: {"username": "123", "status": "approved"}
+    
+    if not event_id or not updates:
+        return jsonify({"success": False, "message": "ข้อมูลไม่ครบถ้วน"}), 400
+        
+    with data_lock:
+        events = load_events()
+        event = next((e for e in events if e['id'] == event_id), None)
+    if not event:
+        return jsonify({"success": False, "message": "ไม่พบกิจกรรม"}), 404
+        
+    event_score = int(event.get('score', 0))
+    event_title = event.get('title', 'กิจกรรม')
+    
+    participations = load_participations()
+    users = load_users()
+    
+    for update in updates:
+        target_username = update.get('username')
+        new_status = update.get('status') # 'approved' or 'rejected'
+        
+        # Find existing participation
+        part = next((p for p in participations if p.get('event_id') == event_id and p.get('username') == target_username), None)
+        
+        if part:
+            part['status'] = new_status
+            if 'score' not in part or part['score'] != event_score:
+                part['score'] = event_score
+        else:
+            # If rejected/not participated and no record exists, we can create a dummy one or just ignore
+            # Let's create a record so we remember the status
+            part = {
+                "id": str(uuid.uuid4()),
+                "username": target_username,
+                "student_name": users[target_username]['name'],
+                "major": users[target_username].get('major'),
+                "event_id": event_id,
+                "event_title": event_title,
+                "event_date": event.get('date', ''),
+                "image_url": None,
+                "status": new_status,
+                "score": event_score
+            }
+            participations.append(part)
+            
+        # Send Email
+        student_email = users[target_username].get('email')
+        if student_email:
+            if new_status == 'approved':
+                subject = f"ยืนยันการเข้าร่วมกิจกรรม: {event_title}"
+                body = f"""
+                <html><body style="font-family: Arial, sans-serif;">
+                    <h2>ยินดีด้วยคุณ {users[target_username]['name']}!</h2>
+                    <p>การเข้าร่วมกิจกรรม <strong>{event_title}</strong> ของคุณได้รับการอนุมัติเรียบร้อยแล้ว</p>
+                    <p style="font-size: 18px; color: #16a34a;">คุณได้รับคะแนน: <strong>{event_score} คะแนน</strong></p>
+                </body></html>
+                """
+                send_email_async(student_email, subject, body)
+            elif new_status == 'rejected':
+                subject = f"อัปเดตสถานะกิจกรรม: {event_title}"
+                body = f"""
+                <html><body style="font-family: Arial, sans-serif;">
+                    <h2>เรียนคุณ {users[target_username]['name']}</h2>
+                    <p>ระบบตรวจสอบพบว่าสถานะของคุณในกิจกรรม <strong>{event_title}</strong> คือ <span style="color: #dc2626; font-weight: bold;">ไม่ผ่าน / ไม่เข้าร่วม</span></p>
+                    <p>หากมีข้อสงสัยโปรดติดต่อแอดมินสาขาของคุณ</p>
+                </body></html>
+                """
+                send_email_async(student_email, subject, body)
+                
+    save_participations(participations)
+    return jsonify({"success": True, "message": "อัปเดตสถานะเรียบร้อยแล้ว"})
+
+@app.route('/api/admin/update-status-bulk', methods=['POST'])
+@require_role('admin', 'major')
+def update_status_bulk():
+    username = session.get('username')
+    users = load_users()
+    current_user = users[username]
+    role = current_user.get('role')
+        
+    data = request.json
+    event_id = data.get('event_id')
+    usernames = data.get('usernames', [])
+    new_status = data.get('status')
+    custom_scores = data.get('scores', {}) # Map: {username: score}
+    
+    if not event_id or not usernames or not new_status:
+        return jsonify({"success": False, "message": "ข้อมูลไม่ครบถ้วน"}), 400
+        
+    with data_lock:
+        events = load_events()
+        event = next((e for e in events if e['id'] == event_id), None)
+        if not event: return jsonify({"success": False, "message": "ไม่พบกิจกรรม"}), 404
+        
+        default_score = int(event.get('score', 0))
+        event_title = event.get('title', 'กิจกรรม')
+        participations = load_participations()
+        
+        for target_u in usernames:
+            if target_u not in users: continue
+            
+            # Check permission if major
+            if role == 'major' and users[target_u].get('major') != current_user.get('name'):
+                continue 
+                
+            part = next((p for p in participations if p.get('event_id') == event_id and p.get('username') == target_u), None)
+            
+            final_score = int(custom_scores.get(target_u, default_score))
+            
+            if part:
+                part['status'] = new_status
+                part['score'] = final_score
+            else:
+                part = {
+                    "id": str(uuid.uuid4()),
+                    "username": target_u,
+                    "student_name": users[target_u]['name'],
+                    "major": users[target_u].get('major'),
+                    "event_id": event_id,
+                    "event_title": event_title,
+                    "event_date": event.get('date', ''),
+                    "image_url": None,
+                    "status": new_status,
+                    "score": final_score
+                }
+                participations.append(part)
+                
+            # Email Notification
+            student_email = users[target_u].get('email')
+            if student_email:
+                if new_status == 'approved':
+                    subject = f"ยืนยันการเข้าร่วมกิจกรรม: {event_title}"
+                    body = f"<html><body><h2>ยินดีด้วย!</h2><p>กิจกรรม {event_title} ได้รับการอนุมัติแล้ว คุณได้รับ {final_score} คะแนน</p></body></html>"
+                    send_email_async(student_email, subject, body)
+                elif new_status == 'rejected':
+                    subject = f"แจ้งเตือนสถานะกิจกรรม: {event_title}"
+                    body = f"<html><body><h2>แจ้งเตือน</h2><p>ผลงานกิจกรรม {event_title} ของคุณไม่ผ่านการอนุมัติ</p></body></html>"
+                    send_email_async(student_email, subject, body)
+
+        save_participations(participations)
+    return jsonify({"success": True, "message": "อัปเดตเรียบร้อยแล้ว"})
+
+@app.route('/api/admin/reports/students', methods=['GET'])
+@require_role('admin', 'major')
+def get_student_report():
+    
+    with data_lock:
+        users = load_users()
+        events = load_events()
+        participations = load_participations()
+    
+    event_scores = {e['id']: int(e.get('score', 0)) for e in events}
+    
+    # Pre-calculate scores for each student in one pass
+    student_stats = {} # {username: {"score": 0, "count": 0}}
+    for p in participations:
+        if p.get('status') == 'approved':
+            u_id = p.get('username')
+            if u_id not in student_stats:
+                student_stats[u_id] = {"score": 0, "count": 0}
+            
+            # Use score from participation record, fallback to event default
+            score = p.get('score', event_scores.get(p.get('event_id'), 0))
+            student_stats[u_id]["score"] += int(score)
+            student_stats[u_id]["count"] += 1
+    
+    report = []
+    current_username = session.get('username')
+    current_user_role = users.get(current_username, {}).get('role')
+    
+    for u_id, u_info in users.items():
+        role = u_info.get('role')
+        # Include students for everyone, and major admins only for super admins
+        if role == 'student' or (current_user_role == 'admin' and role == 'major'):
+            stats = student_stats.get(u_id, {"score": 0, "count": 0})
+            
+            report.append({
+                "username": u_id,
+                "name": u_info.get('name'),
+                "major": u_info.get('major') or u_info.get('name'), # Fallback for admins
+                "score": stats["score"],
+                "participated_count": stats["count"],
+                "year": get_student_year(u_id) if role == 'student' else "Admin",
+                "role": role
+            })
+            
+    return jsonify(report)
+
+@app.route('/api/admin/reset-password', methods=['POST'])
+@require_role('admin', 'major')
+def admin_reset_password():
+    
+    data = request.json
+    target_username = data.get('username')
+    new_password = data.get('new_password', '123456') # Default or custom
+    
+    with data_lock:
+        users = load_users()
+        if target_username not in users:
+            return jsonify({"success": False, "message": "ไม่พบผู้ใช้งาน"}), 404
+            
+        users[target_username]['password'] = generate_password_hash(new_password)
+        save_users(users)
+        return jsonify({"success": True, "message": f"รีเซ็ตรหัสผ่านเป็น '{new_password}' เรียบร้อยแล้ว"})
+
+@app.route('/api/admin/participations/delete/<part_id>', methods=['POST'])
+@require_role('admin')
+def delete_participation(part_id):
+        
+    participations = load_participations()
+    part_index = next((i for i, p in enumerate(participations) if p['id'] == part_id), None)
+    
+    if part_index is None:
+        return jsonify({"success": False, "message": "ไม่พบข้อมูลประวัติ"}), 404
+        
+    del participations[part_index]
+    save_participations(participations)
+    return jsonify({"success": True, "message": "ลบประวัติเรียบร้อยแล้ว"})
+
+@app.route('/api/admin/delete-user', methods=['POST'])
+@require_role('admin', 'major')
+def admin_delete_user():
+    username = session.get('username')
+    
+    data = request.json
+    target_username = data.get('username')
+    
+    with data_lock:
+        users = load_users()
+        current_user = users.get(username)
+        if not current_user:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+            
+        role = current_user.get('role')
+            
+        if target_username not in users:
+            return jsonify({"success": False, "message": "ไม่พบผู้ใช้งาน"}), 404
+        
+        target_data = users[target_username]
+        if target_data.get('role') == 'admin':
+            return jsonify({"success": False, "message": "ไม่สามารถลบแอดมินส่วนกลางได้"}), 403
+
+        if role == 'major':
+            my_major_name = current_user.get('name')
+            if target_data.get('role') != 'student' or target_data.get('major') != my_major_name:
+                return jsonify({"success": False, "message": "คุณไม่มีสิทธิ์ลบผู้ใช้งานนอกสาขา"}), 403
+            
+        del users[target_username]
+        save_users(users)
+        
+        # Remove participations for this user atomically
+        participations = load_participations()
+        filtered_parts = [p for p in participations if p.get('username') != target_username]
+        if len(filtered_parts) != len(participations):
+            save_participations(filtered_parts)
+            
+        return jsonify({"success": True, "message": "ลบผู้ใช้งานและประวัติเรียบร้อยแล้ว"})
+
+@app.route('/api/leaderboard', methods=['GET'])
+def get_leaderboard():
+    events = load_events()
+    event_scores = {e['id']: int(e.get('score', 0)) for e in events}
+    
+    participations = load_participations()
+    users = load_users()
+    
+    scores = {}
+    for p in participations:
+        if p.get('status') == 'approved':
+            u_id = p.get('username')
+            if u_id in users:
+                if u_id not in scores:
+                    scores[u_id] = 0
+                scores[u_id] += p.get('score', event_scores.get(p.get('event_id'), 0))
+            
+    # Format result
+    leaderboard = []
+    for u_id, score in scores.items():
+        if u_id in users and users[u_id].get('role') == 'student':
+            leaderboard.append({
+                "username": u_id,
+                "name": users[u_id].get('name'),
+                "major": users[u_id].get('major'),
+                "score": score
+            })
+            
+    leaderboard.sort(key=lambda x: x['score'], reverse=True)
+    return jsonify(leaderboard[:10]) # Return Top 10
+
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory('.', path)
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    print("==================================================")
+    print("   UNIVERSITY ACTIVITY CALENDAR - PRODUCTION MODE")
+    print("==================================================")
+    
+    try:
+        from waitress import serve
+        print(f"   Running with Waitress (Production Grade)")
+        print(f"   Port: {port}")
+        print("   Capacity: 1,000+ Concurrent Users (12 Threads)")
+        print("==================================================")
+        serve(app, host='0.0.0.0', port=port, threads=12)
+    except ImportError:
+        print("   Waitress not found. Running in Development Mode...")
+        app.run(debug=True, port=port, host='0.0.0.0')
