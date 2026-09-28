@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แบบเสนอเค้าโครงวิชาสัมมนา - ระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษา</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 2.5cm 2cm 2cm 2.54cm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Sarabun', 'TH Sarabun New', Tahoma, sans-serif;
+            font-size: 16pt;
+            line-height: 1.6;
+            color: #111;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 20px 0;
+        }
+
+        .paper-container {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 2.5cm 2cm 2cm 2.54cm;
+            margin: 0 auto;
+            background: #ffffff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .no-print-bar {
+            width: 210mm;
+            margin: 0 auto 15px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
+
+        .btn-print {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            font-size: 15px;
+            font-family: 'Sarabun', sans-serif;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print:hover {
+            background: #1d4ed8;
+        }
+
+        h1, h2, h3, h4 {
+            margin: 0 0 10px 0;
+            color: #000;
+            font-weight: 700;
+        }
+
+        .doc-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .doc-header .doc-title {
+            font-size: 18pt;
+            font-weight: 700;
+        }
+
+        .doc-header .doc-subtitle {
+            font-size: 16pt;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .section-title {
+            font-size: 16pt;
+            font-weight: 700;
+            margin-top: 18px;
+            margin-bottom: 6px;
+        }
+
+        .sub-section-title {
+            font-size: 16pt;
+            font-weight: 600;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            padding-left: 20px;
+        }
+
+        p {
+            margin: 0 0 10px 0;
+            text-align: justify;
+            text-justify: inter-cluster;
+        }
+
+        .indent-p {
+            text-indent: 1.5cm;
+        }
+
+        ol, ul {
+            margin: 5px 0 12px 0;
+            padding-left: 1.5cm;
+        }
+
+        li {
+            margin-bottom: 4px;
+            text-align: justify;
+        }
+
+        .formula-box {
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 10px 20px;
+            margin: 10px 0 15px 1.5cm;
+            display: inline-block;
+            font-family: 'Times New Roman', 'Sarabun', serif;
+        }
+
+        table.academic-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0 20px 0;
+            font-size: 14pt;
+        }
+
+        table.academic-table th, table.academic-table td {
+            border: 1px solid #333;
+            padding: 6px 10px;
+            vertical-align: middle;
+        }
+
+        table.academic-table th {
+            background-color: #f3f4f6;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+
+        .gantt-table {
+            font-size: 12pt;
+        }
+
+        .gantt-table th, .gantt-table td {
+            padding: 4px 6px;
+            text-align: center;
+        }
+
+        .gantt-bar {
+            background-color: #1e293b;
+            color: #fff;
+            font-size: 10pt;
+            border-radius: 2px;
+            padding: 2px 0;
+        }
+
+        .page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+            }
+
+            .no-print-bar {
+                display: none !important;
+            }
+
+            .paper-container {
+                width: 100%;
+                min-height: auto;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print-bar">
+        <div>
+            <strong>แบบเสนอเค้าโครงสัมมนา</strong> &bull; ระบบกิจกรรมนักศึกษา คณะวิทยาศาสตร์และเทคโนโลยี มรภ.สกลนคร
+        </div>
+        <button class="btn-print" onclick="window.print()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-4 0v4H8v-4h8zM14 4h2M14 7h2"></path></svg>
+            พิมพ์เอกสาร / บันทึกเป็น PDF
+        </button>
+    </div>
+
+    <div class="paper-container">
+
+        <!-- HEADER -->
+        <div class="doc-header">
+            <div class="doc-title">แบบเสนอเค้าโครงวิชาสัมมนาด้านเทคโนโลยีคอมพิวเตอร์และดิจิทัล</div>
+            <div class="doc-subtitle">ปีการศึกษา 1/ 2569</div>
+        </div>
+
+        <!-- 1. ชื่องาน -->
+        <div class="section-title">1. ชื่องาน</div>
+        <p class="indent-p">
+            <strong>ภาษาไทย:</strong> การพัฒนาระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรม คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร<br>
+            <strong>ภาษาอังกฤษ:</strong> Development of Student Activity Management and Activity Hours Verification Information System, Faculty of Science and Technology, Sakon Nakhon Rajabhat University
+        </p>
+
+        <!-- 2. ผู้เสนอโครงงาน -->
+        <div class="section-title">2. ผู้เสนอโครงงาน</div>
+        <p class="indent-p">
+            <strong>ชื่อ-สกุล:</strong> นาย กฤษฎา ศรีคิลิน &nbsp;&nbsp;&nbsp;&nbsp; <strong>รหัสประจำตัว:</strong> 67102122111<br>
+            <strong>หลักสูตร:</strong> เทคโนโลยีคอมพิวเตอร์และดิจิทัล คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร
+        </p>
+
+        <p class="indent-p">
+            กิจกรรมนักศึกษาถือเป็นกลไกสำคัญในการพัฒนานักศึกษาตามกรอบมาตรฐานคุณวุฒิระดับอุดมศึกษาแห่งชาติ โดยมีบทบาทในการปลูกฝังวินัย ภาวะผู้นำ จิตสาธารณะ ความสามัคคี ตลอดจนการเสริมสร้างทักษะทางสังคม (Soft Skills) ที่จำเป็นต่อการประกอบอาชีพในอนาคต คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร ได้กำหนดให้นักศึกษาทุกคนต้องเข้าร่วมกิจกรรมเสริมหลักสูตรและสะสมหน่วยชั่วโมงกิจกรรมให้ครบถ้วนตามเกณฑ์เพื่อเป็นเงื่อนไขประกอบการสำเร็จการศึกษา
+        </p>
+
+        <p class="indent-p">
+            อย่างไรก็ตาม จากการศึกษาสภาพการดำเนินงานในปัจจุบัน พบว่ากระบวนการบริหารจัดการกิจกรรมยังคงอาศัยรูปแบบดั้งเดิมที่ก่อให้เกิดปัญหาหลายด้าน ประการแรก การประชาสัมพันธ์และการรับสมัครผ่านเอกสารหรือฟอร์มออนไลน์ทั่วไปขาดการเชื่อมโยงฐานข้อมูลส่วนกลาง ทำให้ไม่สามารถควบคุมจำนวนผู้เข้าร่วมให้พอดีกับความจุของสถานที่จัดงานได้อย่างแท้จริง ประการที่สอง การเช็คอินหน้างานด้วยการเซ็นชื่อบนกระดาษก่อให้เกิดความล่าช้า แถวยาวสะสม และมีความเสี่ยงสูงต่อการลงชื่อแทนกัน (Proxy Attendance) ประการที่สาม การส่งหลักฐานภาพถ่ายมีความกระจัดกระจาย อาจารย์และเจ้าหน้าที่ต้องเสียเวลาตรวจสอบเอกสารจำนวนมากแบบแมนนวล ส่งผลให้นักศึกษาไม่ทราบสถานะคะแนนสะสมแบบเรียลไทม์ และมักพบปัญหาคะแนนไม่ครบก่อนสำเร็จการศึกษา ประการที่สี่ เกียรติบัตรยังออกในรูปแบบกระดาษหรือไฟล์ภาพทั่วไปที่ขาดระบบการตรวจสอบความถูกต้องแบบดิจิทัล ทำให้มีความเสี่ยงต่อการปลอมแปลง และประการสุดท้าย ขาดระบบแจ้งเตือนกำหนดการกิจกรรมล่วงหน้าแบบเจาะจงบุคคล ทำให้นักศึกษาพลาดกิจกรรมสำคัญ
+        </p>
+
+        <p class="indent-p">
+            โครงงานนี้จึงมีเป้าหมายในการพัฒนาระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรมแบบบูรณาการ คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร (SNRU SciTech Activity System) ในรูปแบบเว็บแอปพลิเคชันที่รองรับการใช้งานบนทุกอุปกรณ์ โดยนำเทคโนโลยีระบุพิกัดตำแหน่งทางภูมิศาสตร์ (GPS Geolocation ร่วมกับขั้นตอนวิธี Haversine) ควบคู่กับรหัสคิวอาร์แบบใช้ครั้งเดียวที่มีการลงลายมือชื่อดิจิทัล (Dynamic HMAC-SHA256 Token) เพื่อเช็คอินหน้างานอย่างแม่นยำ ป้องกันการทุจริต พร้อมทั้งพัฒนาระบบคิวสำรองอัตโนมัติ (Waitlist Queue), ระบบตรวจสอบและบีบอัดภาพหลักฐานที่ปลอดภัย, ระบบเกียรติบัตรดิจิทัลพร้อม QR Code ตรวจสอบความถูกต้อง และระบบแจ้งเตือนผ่านจดหมายอิเล็กทรอนิกส์ (Email Notification) พร้อมระบบแจ้งเตือนผ่านเว็บแอปพลิเคชัน ซึ่งจะช่วยเพิ่มประสิทธิภาพในการบริหารงาน ลดภาระงานของผู้ดูแล และอำนวยความสะดวกแก่นักศึกษาอย่างมีประสิทธิผล
+        </p>
+
+        <!-- 3. วัตถุประสงค์ -->
+        <div class="section-title">3. วัตถุประสงค์ของโครงงาน</div>
+        <ol>
+            <li>เพื่อออกแบบและพัฒนาระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรม คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร</li>
+            <li>เพื่อประเมินประสิทธิภาพการทำงานของระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรม โดยผู้เชี่ยวชาญด้านเทคโนโลยีสารสนเทศ</li>
+            <li>เพื่อศึกษาความพึงพอใจของนักศึกษาและบุคลากรผู้ใช้งานที่มีต่อระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรม</li>
+        </ol>
+
+        <!-- 4. ขอบเขต -->
+        <div class="section-title">4. ขอบเขตของโครงงาน</div>
+        
+        <div class="sub-section-title">4.1 ขอบเขตเนื้อหาและฟังก์ชันการทำงาน</div>
+        <p class="indent-p">
+            ระบบถูกออกแบบตามสิทธิ์การใช้งาน (Role-based Access Control) โดยครอบคลุม 3 กลุ่มผู้ใช้หลัก ดังนี้:
+        </p>
+        <p style="padding-left: 20px;"><strong>1. สิทธิ์นักศึกษา (Student Role)</strong></p>
+        <ul>
+            <li>การลงทะเบียนเข้าสู่ระบบ ยืนยันตัวตน และจัดการข้อมูลโปรไฟล์ส่วนบุคคล</li>
+            <li>การค้นหาและเรียกดูรายละเอียดกิจกรรมบนปฏิทินกิจกรรมคณะแบบ Interactive</li>
+            <li>การจองสิทธิ์เข้าร่วมกิจกรรมล่วงหน้า พร้อมระบบจัดสรรคิวสำรองอัตโนมัติ (Waitlist)</li>
+            <li>การเช็คอินหน้างานด้วยสมาร์ตโฟนผ่านการสแกน QR Code ควบคู่กับการตรวจสอบพิกัด GPS Geolocation ในรัศมีสถานที่จริง</li>
+            <li>การส่งภาพถ่ายหลักฐานการเข้าร่วมกิจกรรม และการส่งซ้ำกรณีถูกปฏิเสธ</li>
+            <li>การตรวจสอบคะแนนกิจกรรมสะสมที่ได้รับการอนุมัติแล้ว และคะแนนที่อยู่ระหว่างรอตรวจสอบ</li>
+            <li>การเข้าถึงเกียรติบัตรดิจิทัล และการดาวน์โหลดเกียรติบัตรที่มีรหัสตรวจสอบ</li>
+            <li>การส่งออกกำหนดการกิจกรรมไปยังปฏิทินส่วนบุคคล (.ics Calendar Snapshot)</li>
+            <li>การรับการแจ้งเตือนผลการอนุมัติและเตือนกิจกรรมล่วงหน้า 1 วัน ผ่านระบบและจดหมายอิเล็กทรอนิกส์ (Email Notification)</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>2. สิทธิ์ผู้ดูแลระดับสาขาวิชา (Major Admin Role)</strong></p>
+        <ul>
+            <li>การจัดการกิจกรรมเฉพาะที่สังกัดสาขาวิชาของตน (เพิ่ม, แก้ไข, ปิดรับสมัคร)</li>
+            <li>การเรียกดูรายชื่อนักศึกษาที่ลงทะเบียนในกิจกรรมของสาขาวิชา</li>
+            <li>การตรวจสอบและอนุมัติหลักฐานภาพถ่ายกิจกรรมเป็นรายบุคคลหรือแบบกลุ่ม (Bulk Review) พร้อมระบุเหตุผลกรณีปฏิเสธ</li>
+            <li>การส่งออกรายงานสรุปการเข้าร่วมกิจกรรมของสาขาวิชาในรูปแบบไฟล์ CSV</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>3. สิทธิ์ผู้ดูแลระบบส่วนกลาง (Central Admin / สโมสรนักศึกษา)</strong></p>
+        <ul>
+            <li>การบริหารจัดการกิจกรรมทุกระดับทั้งคณะและมหาวิทยาลัย</li>
+            <li>การสร้าง QR Code เช็คอินหน้างานแบบ Real-time พร้อมกำหนดพิกัดละติจูด-ลองจิจูด และรัศมีระยะทาง</li>
+            <li>การบริหารจัดการบัญชีผู้ใช้งาน (เพิ่ม, แก้ไข, รีเซ็ตรหัสผ่าน, ลบบัญชี)</li>
+            <li>การจัดการภาพแบนเนอร์ประชาสัมพันธ์หน้าหลัก (Carousel Banner)</li>
+            <li>การเรียกดูสถิติภาพรวมบน Dashboard (จำนวนผู้ใช้งาน, จำนวนกิจกรรม, รายการรอตรวจ)</li>
+            <li>การตรวจสอบประวัติการทำรายการย้อนหลัง (Audit Logs Trail)</li>
+            <li>การกู้คืนข้อมูลที่ถูกลบชั่วคราว (Soft Delete & Trash Restoration)</li>
+            <li>การสำรองฐานข้อมูลออนไลน์และตรวจสอบความสมบูรณ์ของไฟล์สำรอง (Online Backup & Integrity Verification)</li>
+            <li>การตรวจสอบคิวงานส่งข้อความแจ้งเตือนภายนอก (Outbox Queue & Retry Delivery)</li>
+        </ul>
+
+        <div class="sub-section-title">4.2 ขอบเขตการพัฒนา</div>
+        <ol>
+            <li>พัฒนาระบบในรูปแบบ Responsive Web Application รองรับการแสดงผลทั้งบนสมาร์ตโฟน แท็บเล็ต และคอมพิวเตอร์ (ความกว้างหน้าจอตั้งแต่ 390px ขึ้นไป)</li>
+            <li>สถาปัตยกรรมระบบฝั่งเซิร์ฟเวอร์พัฒนาด้วยภาษา Python ร่วมกับ Flask Framework และ Waitress WSGI Server</li>
+            <li>ระบบฐานข้อมูลใช้ SQLite 3 ที่ทำงานในโหมด Write-Ahead Logging (WAL) พร้อมกำหนด Database Triggers เพื่อควบคุมสภาวะแย่งชิงทรัพยากร (ACID Concurrency Control)</li>
+            <li>ระบบยืนยันตำแหน่งใช้ HTML5 Geolocation API ร่วมกับขั้นตอนวิธี Haversine Formula เพื่อคำนวณระยะทางจริงระหว่างผู้ใช้และสถานที่จัดงาน</li>
+            <li>ระบบเช็คอินใช้ Dynamic Token เข้ารหัส HMAC-SHA256 ผูกกับ Nonce ในฐานข้อมูล มีอายุ 5 นาที ป้องกันการทำซ้ำ (Replay Attack)</li>
+            <li>ระบบประมวลผลและลดขนาดภาพถ่ายหลักฐานด้วย Pillow Library เพื่อกำจัด Malicious Script และประหยัดพื้นที่จัดเก็บข้อมูล</li>
+            <li>ระบบออกเกียรติบัตรดิจิทัลพร้อม Signed Serializer URL สำหรับสแกน QR Code ตรวจสอบความถูกต้องจากภายนอก</li>
+            <li>ระบบส่งการแจ้งเตือนแบบอะซิงโครนัสผ่านสถาปัตยกรรม Outbox Pattern เชื่อมต่อบริการจดหมายอิเล็กทรอนิกส์ (SMTP Email) และการแจ้งเตือนบนเว็บแอปพลิเคชัน</li>
+        </ol>
+
+        <div class="sub-section-title">4.3 ประชากรและกลุ่มตัวอย่าง</div>
+        <p class="indent-p">
+            <strong>ประชากร:</strong> นักศึกษาคณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร ทุกชั้นปี และอาจารย์/บุคลากรที่รับผิดชอบงานกิจกรรมนักศึกษา<br>
+            <strong>กลุ่มตัวอย่าง:</strong>
+        </p>
+        <ol>
+            <li>นักศึกษาคณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร จำนวน 30 คน โดยใช้วิธีการเลือกแบบเจาะจง (Purposive Sampling) จากตัวแทนนักศึกษาทุกชั้นปีและหลากหลายสาขาวิชา</li>
+            <li>กรรมการสโมสรนักศึกษาและตัวแทนผู้รับผิดชอบกิจกรรมประจำสาขาวิชา จำนวน 5 คน ทำหน้าที่ทดลองใช้งานระบบการจัดกิจกรรมและการอนุมัติ</li>
+            <li>อาจารย์และผู้เชี่ยวชาญด้านเทคโนโลยีสารสนเทศและการพัฒนาเว็บแอปพลิเคชัน จำนวน 3 ท่าน เพื่อประเมินคุณภาพและประสิทธิภาพของระบบ</li>
+        </ol>
+
+        <div class="sub-section-title">4.4 สถิติที่ใช้ในการวิเคราะห์ข้อมูล</div>
+        <p class="indent-p">
+            <strong>1. ค่าเฉลี่ย (Mean)</strong> ใช้สูตร:
+        </p>
+        <div class="formula-box">
+            $$\bar{X} = \frac{\sum X_i}{n}$$
+        </div>
+        <p style="padding-left: 1.5cm; font-size: 14pt;">
+            โดยที่ $\bar{X}$ = ค่าเฉลี่ย, $X_i$ = ค่าคะแนนของข้อมูลแต่ละตัว, $n$ = จำนวนผู้ตอบแบบประเมินทั้งหมด
+        </p>
+
+        <p class="indent-p">
+            <strong>2. ส่วนเบี่ยงเบนมาตรฐาน (Standard Deviation: S.D.)</strong> ใช้สูตร:
+        </p>
+        <div class="formula-box">
+            $$S.D. = \sqrt{\frac{\sum (X_i - \bar{X})^2}{n - 1}}$$
+        </div>
+
+        <p class="indent-p">
+            <strong>3. เกณฑ์การประเมิน (Likert Scale 5 ระดับ):</strong>
+        </p>
+        <ul>
+            <li>4.51 – 5.00 หมายถึง มีประสิทธิภาพ / มีความพึงพอใจในระดับดีมาก</li>
+            <li>3.51 – 4.50 หมายถึง มีประสิทธิภาพ / มีความพึงพอใจในระดับดี</li>
+            <li>2.51 – 3.50 หมายถึง มีประสิทธิภาพ / มีความพึงพอใจในระดับปานกลาง</li>
+            <li>1.51 – 2.50 หมายถึง มีประสิทธิภาพ / มีความพึงพอใจในระดับน้อย</li>
+            <li>1.00 – 1.50 หมายถึง มีประสิทธิภาพ / มีความพึงพอใจในระดับน้อยที่สุด</li>
+        </ul>
+
+        <!-- 5. เทคโนโลยีที่ใช้ -->
+        <div class="section-title">5. เทคโนโลยีที่ใช้</div>
+        
+        <div class="sub-section-title">5.1 เทคนิคหรือเทคโนโลยีที่ใช้</div>
+        <ol>
+            <li><strong>GPS Geolocation & Haversine Formula:</strong> ตรวจสอบพิกัดละติจูด-ลองจิจูดของผู้ใช้งานเทียบกับสถานที่จัดงาน เพื่อให้มั่นใจว่านักศึกษาเข้าร่วมกิจกรรมในพื้นที่จริง</li>
+            <li><strong>HMAC-SHA256 Token with Nonce:</strong> สร้างโทเค็นเข้ารหัสลับสำหรับ QR Code เช็คอินที่มีการประทับเวลาและ Nonce ซึ่งหมดอายุภายใน 5 นาที เพื่อป้องกันการคัดลอกหรือถ่ายภาพส่งต่อ</li>
+            <li><strong>Cryptographic URL Serializer:</strong> ลงลายมือชื่อดิจิทัลบนรหัสเกียรติบัตรเพื่อป้องกันการแก้ไขปลอมแปลงข้อมูล (Tamper-proof Certificate Verification Link)</li>
+            <li><strong>Transactional Outbox Pattern & Background Worker:</strong> แยกการส่งข้อความแจ้งเตือนผ่านจดหมายอิเล็กทรอนิกส์ (SMTP Email Notification) ออกเป็นกระบวนการเบื้องหลัง (Background Process) เพื่อรับประกันความแน่นอนในการส่งข้อมูลและไม่หน่วงเวลาการตอบสนองของระบบ</li>
+            <li><strong>Database Concurrency & Triggers:</strong> การใช้ SQLite WAL Mode ร่วมกับ Trigger <code>enforce_event_capacity_after_insert/update</code> เพื่อควบคุมจำนวนที่นั่งระดับ ACID ป้องกันการจองเกินจำนวนพร้อมกัน</li>
+            <li><strong>Web Alert & Notification Modal:</strong> การออกแบบระบบหน้าต่างแจ้งเตือนและกล่องข้อความโต้ตอบบนหน้าต่างเว็บแอปพลิเคชันอย่างเป็นระเบียบและชัดเจน</li>
+            <li><strong>Responsive Web Design:</strong> ใช้เทคนิคโมเดิร์น CSS (Grid, Flexbox, Glassmorphism, Dark/Light Theme) เพื่อให้แสดงผลได้อย่างเหมาะสมบนทุกขนาดหน้าจอ</li>
+        </ol>
+
+        <div class="sub-section-title">5.2 เครื่องมือที่ใช้ในการวิจัย</div>
+        <ol>
+            <li>แบบประเมินประสิทธิภาพระบบสำหรับผู้เชี่ยวชาญ (Functionality, Usability, Security, Performance)</li>
+            <li>แบบสอบถามความพึงพอใจของผู้ใช้งานระบบ (นักศึกษาและผู้ดูแลระบบ)</li>
+            <li>ชุดทดสอบซอฟต์แวร์อัตโนมัติ (Automated Test Suite): Pytest สำหรับทดสอบ API/Database และ Playwright สำหรับทดสอบ User Journey บนเบราว์เซอร์จริง</li>
+        </ol>
+
+        <div class="sub-section-title">5.3 เครื่องมือที่ใช้ในการพัฒนา</div>
+        <p style="padding-left: 20px;"><strong>1. ภาษาโปรแกรม</strong></p>
+        <ul>
+            <li><strong>Python 3.12:</strong> ใช้พัฒนา Backend Logic, REST API, Database Interface และ Worker Scheduler</li>
+            <li><strong>JavaScript (ES6+):</strong> ใช้พัฒนา Frontend Logic, Asynchronous Fetch API, กล้องสแกน QR Code และพิกัด Geolocation</li>
+            <li><strong>HTML5 & CSS3:</strong> ใช้สร้างโครงสร้างหน้าเว็บและดีไซน์แบบ Responsive Web Design</li>
+            <li><strong>SQL:</strong> ใช้จัดการโครงสร้างตาราง ดัชนี และทริกเกอร์ในฐานข้อมูลเชิงสัมพันธ์</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>2. ซอฟต์แวร์และไลบรารี</strong></p>
+        <ul>
+            <li><strong>Flask 3.0:</strong> เว็บเฟรมเวิร์กหลักสำหรับการกำหนด Routing และการประมวลผลคำขอ HTTP</li>
+            <li><strong>Waitress 3.0:</strong> โปรดักชัน WSGI Server ประสิทธิภาพสูง รองรับการทำงานแบบ Multi-threaded</li>
+            <li><strong>SQLite 3:</strong> ระบบจัดการฐานข้อมูลความเร็วสูงแบบ Serverless พร้อมโหมด WAL</li>
+            <li><strong>Pillow (PIL):</strong> ไลบรารีสำหรับตรวจสอบ บีบอัด และแปลงไฟล์รูปภาพ</li>
+            <li><strong>Playwright 1.62 & Pytest 8.0:</strong> ไลบรารีสำหรับการทดสอบระบบอัตโนมัติ</li>
+            <li><strong>Visual Studio Code:</strong> โปรแกรมแก้ไขและพัฒนาซอร์สโค้ด</li>
+            <li><strong>Git & GitHub:</strong> ระบบควบคุมและติดตามเวอร์ชันของโครงการ</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>3. ฮาร์ดแวร์สำหรับพัฒนาและทดสอบ (Dell Desktop)</strong></p>
+        <ol>
+            <li>CPU: 12th Gen Intel® Core™ i5-12600 (3.30 GHz), x64-based processor</li>
+            <li>GPU: NVIDIA GeForce RTX 3060 12GB</li>
+            <li>RAM: 16.0 GB DDR4</li>
+            <li>Storage: SSD 1TB NVMe + HDD 2TB</li>
+            <li>ระบบปฏิบัติการ: Windows 11 Pro 64-bit</li>
+            <li>อุปกรณ์พกพาสำหรับทดสอบ: สมาร์ตโฟนระบบปฏิบัติการ Android และ iOS</li>
+        </ol>
+
+        <!-- 6. วิธีการดำเนินงาน -->
+        <div class="section-title">6. วิธีการดำเนินงาน</div>
+        <p class="indent-p">
+            โครงงานนี้ดำเนินการตามวงจรการพัฒนาระบบเชิงระบบ โดยประยุกต์ใช้โมเดล ADDIE ดังนี้:
+        </p>
+
+        <p style="padding-left: 20px;"><strong>1. Analysis (การวิเคราะห์ความต้องการและปัญหา)</strong></p>
+        <ul>
+            <li>1.1 ศึกษาประกาศ ระเบียบ และเกณฑ์การสะสมหน่วยชั่วโมง/คะแนนกิจกรรมของคณะวิทยาศาสตร์และเทคโนโลยี มรภ.สกลนคร</li>
+            <li>1.2 เก็บข้อมูลและสำรวจปัญหาจากกลุ่มผู้ใช้งานเป้าหมาย ได้แก่ นักศึกษา สโมสรนักศึกษา และอาจารย์ผู้รับผิดชอบกิจกรรม</li>
+            <li>1.3 วิเคราะห์ข้อกำหนดเชิงหน้าที่ (Functional Requirements) และข้อกำหนดที่ไม่ใช่เชิงหน้าที่ (Non-Functional Requirements)</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>2. Design (การออกแบบระบบและสถาปัตยกรรม)</strong></p>
+        <ul>
+            <li>2.1 ออกแบบสถาปัตยกรรมระบบโดยรวม (System Architecture) และผังการไหลของข้อมูล (Data Flow Diagram: DFD)</li>
+            <li>2.2 ออกแบบโครงสร้างฐานข้อมูล (Entity-Relationship Diagram: ERD) และพจนานุกรมข้อมูล (Data Dictionary)</li>
+            <li>2.3 ออกแบบกลไกความมั่นคงปลอดภัย (Security Design) ได้แก่ การเข้ารหัสผ่าน, การยืนยันตำแหน่ง GPS, Dynamic HMAC Token และสิทธิ์การเข้าถึงข้อมูลตามบทบาท (RBAC)</li>
+            <li>2.4 ออกแบบส่วนต่อประสานผู้ใช้ (UI/UX) ให้ใช้งานง่าย สวยงาม ทันสมัย และรองรับ Responsive Web บนทุกอุปกรณ์</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>3. Development (การพัฒนาระบบ)</strong></p>
+        <ul>
+            <li>3.1 สร้างโครงสร้างฐานข้อมูล SQLite พร้อมจัดทำ Database Triggers และ Indexes สำหรับควบคุม ACID Concurrency</li>
+            <li>3.2 พัฒนาระบบฝั่งเซิร์ฟเวอร์ (Backend) ด้วยภาษา Python และ Flask Framework เพื่อให้บริการ RESTful API</li>
+            <li>3.3 พัฒนาระบบงานเบื้องหลัง (Outbox Worker) สำหรับจัดการคิวงานแจ้งเตือนทางจดหมายอิเล็กทรอนิกส์ (SMTP Email) และระบบแจ้งเตือนภายในเว็บ</li>
+            <li>3.4 พัฒนาส่วนติดต่อผู้ใช้ฝั่งหน้าบ้าน (Frontend) ด้วย HTML5, CSS3 และ JavaScript เชื่อมต่อ API แบบ Asynchronous</li>
+            <li>3.5 พัฒนาระบบออกเกียรติบัตรดิจิทัลพร้อมฟังก์ชันตรวจสอบความถูกต้องผ่าน QR Code</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>4. Implementation (การทดสอบและการทดลองใช้งาน)</strong></p>
+        <ul>
+            <li>4.1 ทดสอบระบบอัตโนมัติด้วย Pytest ตรวจสอบความถูกต้องของ API, Business Logic และ Concurrency Controls</li>
+            <li>4.2 ทดสอบ End-to-End Browser Testing ด้วย Playwright บนมุมมองจอมือถือ (390px) และจอคอมพิวเตอร์ (1366px)</li>
+            <li>4.3 ติดตั้งระบบและนำไปทดลองใช้งานจริงกับกลุ่มตัวอย่างนักศึกษาและผู้ดูแลกิจกรรมจำนวน 35 คน</li>
+            <li>4.4 สังเกตการณ์ บันทึกผลการใช้งาน และรับฟังข้อเสนอแนะในการปฏิบัติงานจริง</li>
+        </ul>
+
+        <p style="padding-left: 20px;"><strong>5. Evaluation (การประเมินผลและการสรุปผล)</strong></p>
+        <ul>
+            <li>5.1 ประเมินประสิทธิภาพและคุณภาพของระบบโดยผู้เชี่ยวชาญด้านเทคโนโลยีสารสนเทศ จำนวน 3 ท่าน</li>
+            <li>5.2 ประเมินความพึงพอใจของกลุ่มตัวอย่างนักศึกษาและผู้ดูแลระบบ โดยใช้แบบสอบถามมาตราส่วนประมาณค่า 5 ระดับ</li>
+            <li>5.3 วิเคราะห์ผลข้อมูลทางสถิติ (ค่าเฉลี่ยและส่วนเบี่ยงเบนมาตรฐาน)</li>
+            <li>5.4 สรุปผลการดำเนินโครงงาน จัดทำเอกสารคู่มือการใช้งาน และจัดทำรายงานฉบับสมบูรณ์</li>
+        </ul>
+
+        <!-- 7. แผนการดำเนินงาน -->
+        <div class="section-title">7. แผนการดำเนินงาน</div>
+        <p style="margin-bottom: 5px;"><strong>ตารางที่ 1.1 ระยะเวลาการดำเนินงาน (ปีการศึกษา 2568 - 2569)</strong></p>
+        
+        <table class="academic-table gantt-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width: 28%;">กิจกรรม</th>
+                    <th colspan="3">พ.ศ. 2568</th>
+                    <th colspan="9">พ.ศ. 2569</th>
+                </tr>
+                <tr>
+                    <th style="width: 6%;">ต.ค.</th>
+                    <th style="width: 6%;">พ.ย.</th>
+                    <th style="width: 6%;">ธ.ค.</th>
+                    <th style="width: 6%;">ม.ค.</th>
+                    <th style="width: 6%;">ก.พ.</th>
+                    <th style="width: 6%;">มี.ค.</th>
+                    <th style="width: 6%;">เม.ย.</th>
+                    <th style="width: 6%;">พ.ค.</th>
+                    <th style="width: 6%;">มิ.ย.</th>
+                    <th style="width: 6%;">ก.ค.</th>
+                    <th style="width: 6%;">ส.ค.</th>
+                    <th style="width: 6%;">ก.ย.</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-left">1. กำหนดและเสนอหัวข้อ</td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">2. ศึกษาและรวบรวมข้อมูล</td>
+                    <td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">3. ขั้นตอนการวิเคราะห์</td>
+                    <td></td><td></td><td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">4. ขั้นตอนการออกแบบ</td>
+                    <td></td><td></td><td></td><td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td><td></td><td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">5. ขั้นตอนการพัฒนาระบบ</td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">6. การนำไปทดลองใช้งาน</td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td></td><td></td>
+                </tr>
+                <tr>
+                    <td class="text-left">7. การประเมินและสรุปผล</td>
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                    <td><div class="gantt-bar">&bull;</div></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 8. ประโยชน์ที่คาดว่าจะได้รับ -->
+        <div class="section-title">8. ประโยชน์ที่คาดว่าจะได้รับ</div>
+        <ol>
+            <li>ได้ระบบสารสนเทศบริหารจัดการกิจกรรมนักศึกษาและการตรวจสอบชั่วโมงกิจกรรมแบบบูรณาการที่ทำงานผ่านเว็บแอปพลิเคชันอย่างสมบูรณ์ และพร้อมนำไปใช้งานจริงในคณะวิทยาศาสตร์และเทคโนโลยี</li>
+            <li>นักศึกษาได้รับความสะดวกรวดเร็วในการติดตามข่าวสาร จองกิจกรรม เช็คอินผ่านสมาร์ตโฟน และสามารถตรวจสอบคะแนนกิจกรรมสะสมและดาวน์โหลดเกียรติบัตรได้แบบเรียลไทม์</li>
+            <li>สโมสรนักศึกษาและผู้ดูแลกิจกรรมประจำสาขาวิชา มีเครื่องมือดิจิทัลที่มีประสิทธิภาพในการจัดกิจกรรม ตรวจสอบรายชื่อ อนุมัติหลักฐาน และลดปัญหาการเช็คอินแทนกันได้อย่างมีประสิทธิผล</li>
+            <li>คณะและมหาวิทยาลัย มีฐานข้อมูลกิจกรรมที่ถูกต้อง เชื่อถือได้ ปลอดภัย ลดปริมาณการใช้เอกสารกระดาษ (Paperless) และสามารถนำข้อมูลไปใช้ประกอบการประเมินคุณภาพการศึกษาและต่อยอดการพัฒนาในอนาคต</li>
+        </ol>
+
+        <!-- 9. งานวิจัยที่เกี่ยวข้อง -->
+        <div class="section-title">9. งานวิจัยที่เกี่ยวข้อง</div>
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">ชื่องานวิจัย / ผู้วิจัย</th>
+                    <th style="width: 40%;">รายละเอียดพอสังเขป</th>
+                    <th style="width: 30%;">ความสอดคล้องกับโครงงาน</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-left">
+                        <strong>การออกแบบและพัฒนาระบบสารสนเทศกิจกรรมนักศึกษาผ่านเว็บแอปพลิเคชัน กรณีศึกษาสาขาวิทยาการคอมพิวเตอร์ มหาวิทยาลัยราชภัฏพิบูลสงคราม</strong><br>
+                        <span style="font-size: 13pt; color: #374151;">(ธนพล แย้มทุ่ง และ อรอุมา พร้าโมต, 2568)</span>
+                    </td>
+                    <td>งานวิจัยนี้มุ่งเน้นการพัฒนาระบบสารสนเทศกิจกรรมนักศึกษาผ่านเว็บแอปพลิเคชันสำหรับสาขาวิชาวิทยาการคอมพิวเตอร์ มหาวิทยาลัยราชภัฏพิบูลสงคราม เพื่อแก้ปัญหาการจัดการข้อมูลกิจกรรม การลงทะเบียน และการบันทึกประวัติการเข้าร่วมกิจกรรมที่กระจัดกระจายและไม่เป็นปัจจุบัน ผลการประเมินประสิทธิภาพโดยผู้เชี่ยวชาญมีความเหมาะสมในระดับมากที่สุด (x̄ = 4.62, S.D. = 0.49) และความพึงพอใจของผู้ใช้งานอยู่ในระดับมากที่สุด (x̄ = 4.58, S.D. = 0.52)</td>
+                    <td>สอดคล้องโดยตรงกับโครงงานในด้านการออกแบบสถาปัตยกรรมระบบสารสนเทศกิจกรรมนักศึกษาในบริบทของมหาวิทยาลัยราชภัฏ การจัดโครงสร้างฐานข้อมูลกิจกรรม และการออกแบบกระบวนการติดตามตรวจสอบชั่วโมงกิจกรรมของนักศึกษา</td>
+                </tr>
+                <tr>
+                    <td class="text-left">
+                        <strong>การพัฒนาระบบบริหารจัดการกิจกรรมนักศึกษา ด้วยกระบวนการแบบอไจล์</strong><br>
+                        <span style="font-size: 13pt; color: #374151;">(ชรินทร์ญา หวังวัชรกุล และคณะ, 2568)</span>
+                    </td>
+                    <td>งานวิจัยนี้นำกระบวนการพัฒนาซอฟต์แวร์แบบอไจล์ (Agile Methodology) มาประยุกต์ใช้ในการพัฒนาระบบบริหารจัดการกิจกรรมนักศึกษา โดยแบ่งบทบาทผู้ใช้งานเป็น 3 กลุ่ม ได้แก่ นักศึกษา เจ้าหน้าที่ และผู้บริหาร ระบบรองรับการเปิดรับสมัครกิจกรรม การเช็คชื่อผู้เข้าร่วม และการประมวลผลข้อมูลชั่วโมงกิจกรรมแบบอัตโนมัติ ช่วยลดข้อผิดพลาดและระยะเวลาการทำงานของเจ้าหน้าที่ได้อย่างมีนัยสำคัญ</td>
+                    <td>สอดคล้องในด้านการกำหนดบทบาทผู้ใช้งาน (Role-Based Access Control: RBAC) การจัดการสิทธิ์การเข้าถึงข้อมูลของนักศึกษาและผู้ดูแลกิจกรรม รวมถึงแนวทางการพัฒนาระบบที่ยืดหยุ่นและตอบสนองต่อการเปลี่ยนแปลงข้อกำหนดกิจกรรม</td>
+                </tr>
+                <tr>
+                    <td class="text-left">
+                        <strong>การพัฒนาเว็บแอปพลิเคชันเพื่อสนับสนุนการบริหารจัดการกิจกรรมนักศึกษาในมหาวิทยาลัยพิษณุโลก</strong><br>
+                        <span style="font-size: 13pt; color: #374151;">(กิตติพงศ์ อุ่นแก้ว และคณะ, 2569)</span>
+                    </td>
+                    <td>งานวิจัยนี้พัฒนาเว็บแอปพลิเคชันเพื่อสนับสนุนการบริหารจัดการกิจกรรมนักศึกษา โดยใช้ฐานข้อมูลเชิงสัมพันธ์และสถาปัตยกรรมเว็บสมัยใหม่ รองรับการลงทะเบียนออนไลน์ การสแกนคิวอาร์โค้ดเพื่อเช็คชื่อเข้ากิจกรรม และการสรุปรายงานสถิติการเข้าร่วมกิจกรรมเพื่อสนับสนุนการตัดสินใจของผู้บริหาร ผลการประเมินความพึงพอใจอยู่ในระดับมากที่สุด (x̄ = 4.65, S.D. = 0.48)</td>
+                    <td>สอดคล้องกับการนำเทคโนโลยี QR Code มาใช้ในการเช็คชื่อและยืนยันตัวตนผู้เข้าร่วมกิจกรรมหน้างานแบบเรียลไทม์ ตลอดจนการสรุปผลและส่งออกรายงานสถิติกิจกรรม</td>
+                </tr>
+                <tr>
+                    <td class="text-left">
+                        <strong>พฤติกรรมและแนวทางการพัฒนาประสิทธิภาพเว็บไซต์ด้านกิจการนักศึกษา: กรณีศึกษามหาวิทยาลัยมหิดล</strong><br>
+                        <span style="font-size: 13pt; color: #374151;">(ธารีย์ณิชา ลีพีรวิทิต, และ ปเนต กุลฉันท์วิทย์, 2567)</span>
+                    </td>
+                    <td>งานวิจัยนี้ศึกษาพฤติกรรมของผู้ใช้งานและแนวทางการพัฒนาประสิทธิภาพของเว็บไซต์ด้านกิจการและกิจกรรมนักศึกษา โดยประเมินการเข้าถึงข้อมูลข่าวสารกิจกรรม ความง่ายในการใช้งาน และประสิทธิภาพการตอบสนองของระบบ พบว่าการจัดหมวดหมู่ข้อมูลที่ชัดเจนและการแสดงผลที่รองรับอุปกรณ์พกพาส่งผลต่อการมีส่วนร่วมของนักศึกษาอย่างมีนัยสำคัญ ผลการประเมินความพึงพอใจโดยรวมอยู่ในระดับมาก (x̄ = 4.22, S.D. = 0.58)</td>
+                    <td>สอดคล้องในด้านการออกแบบสถาปัตยกรรมเว็บไซต์กิจกรรมนักศึกษา การจัดวางโครงสร้างสารสนเทศ (Information Architecture) และการพัฒนาส่วนติดต่อผู้ใช้ให้ตอบสนองต่อพฤติกรรมการใช้งานของนักศึกษาในระดับอุดมศึกษาอย่างมีประสิทธิภาพ</td>
+                </tr>
+                <tr>
+                    <td class="text-left">
+                        <strong>แอปพลิเคชันกิจกรรมนักศึกษา คณะวิทยาศาสตร์เทคโนโลยีและการเกษตร มหาวิทยาลัยราชภัฏยะลา</strong><br>
+                        <span style="font-size: 13pt; color: #374151;">(อับดุลเลาะ ยาหะยอ, มูฮาหมัด กะลูแป, และ บุญธิดา จิรรัตนโสภา, 2564)</span>
+                    </td>
+                    <td>การวิจัยนี้พัฒนาระบบเพื่อจัดการกิจกรรมนักศึกษาในระดับคณะวิทยาศาสตร์และเทคโนโลยีของมหาวิทยาลัยราชภัฏ เพื่ออำนวยความสะดวกในการจัดเก็บประวัติกิจกรรม การตรวจสอบสถานะการเข้าร่วมกิจกรรมของนักศึกษา และลดขั้นตอนการทำงานด้านเอกสารของฝ่ายพัฒนานักศึกษา ผลการประเมินความพึงพอใจอยู่ในระดับมาก (x̄ = 4.28, S.D. = 0.62)</td>
+                    <td>สอดคล้องในบริบทของการดำเนินงานในคณะวิทยาศาสตร์และเทคโนโลยีของมหาวิทยาลัยราชภัฏ ซึ่งมีโครงสร้างสาขาวิชาและเกณฑ์การเก็บชั่วโมงกิจกรรมที่สอดคล้องกัน โดยนำแนวทางมาประยุกต์ใช้ในการจัดหมวดหมู่กิจกรรมและการแสดงผลประวัติคะแนนของนักศึกษา</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 10. บรรณานุกรม -->
+        <div class="section-title">10. บรรณานุกรม (รูปแบบตาม APA7)</div>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            กิตติพงศ์ อุ่นแก้ว, มาริสา กัณฑาทรัพย์, ธมนวรรณ บุญไทย, ฤทธิรงค์ แสงสร้อย, และ ปรกฤษฎิ์ สายหัสดี. (2569). การพัฒนาเว็บแอปพลิเคชันเพื่อสนับสนุนการบริหารจัดการกิจกรรมนักศึกษาในมหาวิทยาลัยพิษณุโลก. <em>วารสารวิชาการเทคโนโลยีอุตสาหกรรมและวิศวกรรม มหาวิทยาลัยราชภัฏพิบูลสงคราม</em>, 8(2), 144–157.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            คณะวิทยาศาสตร์และเทคโนโลยี มหาวิทยาลัยราชภัฏสกลนคร. (2566). <em>คู่มือนักศึกษาและเกณฑ์การเข้าร่วมกิจกรรมเสริมหลักสูตร</em>. มหาวิทยาลัยราชภัฏสกลนคร.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            ชรินทร์ญา หวังวัชรกุล, ปฐมาวดี คำทอง, กัลย์สุดา อินทะวงค์, กัลยรัตน์ อาจปาสา, และ สิทธิชัย เสนานุช. (2568). การพัฒนาระบบบริหารจัดการกิจกรรมนักศึกษา ด้วยกระบวนการแบบอไจล์. <em>วารสารวิทยาศาสตร์และเทคโนโลยี มทร.สุวรรณภูมิ</em>, 9(3), 96–113.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            ธนพล แย้มทุ่ง, และ อรอุมา พร้าโมต. (2568). การออกแบบและพัฒนาระบบสารสนเทศกิจกรรมนักศึกษาผ่านเว็บแอปพลิเคชัน กรณีศึกษาสาขาวิทยาการคอมพิวเตอร์ มหาวิทยาลัยราชภัฏพิบูลสงคราม. <em>วารสารก้าวทันโลกวิทยาศาสตร์</em>, 25(1), 63–76.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            ธารีย์ณิชา ลีพีรวิทิต, และ ปเนต กุลฉันท์วิทย์. (2567). พฤติกรรมและแนวทางการพัฒนาประสิทธิภาพเว็บไซต์ด้านกิจการนักศึกษา: กรณีศึกษามหาวิทยาลัยมหิดล. <em>วารสารวิทยสารสนเทศและเทคโนโลยี</em>, 5(2), 15–28.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            อับดุลเลาะ ยาหะยอ, มูฮาหมัด กะลูแป, และ บุญธิดา จิรรัตนโสภา. (2564). แอปพลิเคชันกิจกรรมนักศึกษา คณะวิทยาศาสตร์เทคโนโลยีและการเกษตร มหาวิทยาลัยราชภัฏยะลา. ใน <em>รายงานสืบเนื่องจากการประชุมวิชาการระดับชาติด้านวิทยาศาสตร์และเทคโนโลยีเครือข่ายภาคใต้ ครั้งที่ 6</em> (น. 455–462). มหาวิทยาลัยราชภัฏสงขลา.
+        </p>
+        <p style="padding-left: 1.5cm; text-indent: -1.5cm; margin-bottom: 8px;">
+            Open Web Application Security Project (OWASP). (2021). <em>OWASP Top 10: The Ten Most Critical Web Application Security Risks</em>. Retrieved from https://owasp.org/www-project-top-ten/
+        </p>
+
+    </div>
+
+</body>
+</html>
